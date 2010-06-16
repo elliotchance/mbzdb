@@ -3,42 +3,8 @@
 use LWP::UserAgent;
 use Net::FTP;
 
-# Functions in this file:
-#   mbz_check_new_schema()
-#   mbz_choose_language()
-#   mbz_create_extra_tables()
-#   mbz_download_file()
-#   mbz_download_replication()
-#   mbz_download_schema()
-#   mbz_do_sql()
-#   mbz_first_boot()
-#   mbz_format_time()
-#   mbz_get_current_replication()
-#   mbz_get_key()
-#   mbz_in_array()
-#   mbz_init_plugins()
-#   mbz_load_data()
-#   mbz_load_pending()
-#   mbz_map_kv()
-#   mbz_pad_right()
-#   mbz_raw_download()
-#   mbz_remove_quotes()
-#   mbz_rewrite_settings()
-#   mbz_round()
-#   mbz_run_transactions()
-#   mbz_set_key()
-#   mbz_show_update_help()
-#   mbz_sql_error()
-#   mbz_table_exists()
-#   mbz_trim()
-#   mbz_unpack_data()
-#   mbz_unzip_mbdump()
-#   mbz_unzip_mbdumps()
-#   mbz_unzip_replication()
-#   mbz_update_index()
-#   mbz_update_schema()
 
-# Based on the PHP function mbz_trim() to chop whitespace off the left and right.
+# Based on the PHP function trim() to chop whitespace off the left and right.
 sub mbz_trim {
 	my $string = shift;
 	$string =~ s/^\s+//;
@@ -46,13 +12,14 @@ sub mbz_trim {
 	return $string;
 }
 
-# Based on the PHP function in_array(). Simply returns true is a array value
-# exists.
+
+# Based on the PHP function in_array(). Simply returns true if an array value exists.
 sub mbz_in_array {
 	my ($arr, $search_for) = @_;
 	my %items = map {$_ => 1} @$arr; # create a hash out of the array values
 	return (exists($items{$search_for})) ? 1 : 0;
 }
+
 
 # This is just a simple function for padding a string to the right.
 sub mbz_pad_right {
@@ -64,11 +31,13 @@ sub mbz_pad_right {
 	return "$r$str";
 }
 
+
 # Round to nearest integer.
 sub mbz_round {
     my ($number) = shift;
     return int($number + 0.5);
 }
+
 
 # Generic function to download a file.
 sub mbz_download_file {
@@ -77,8 +46,9 @@ sub mbz_download_file {
 	my $resp = $ua->request($request, $_[1]);
 }
 
-# This function will download the original MusicBrainz PostgreSQL create table
-# SQL and be dynamically converted to a MySQL compatible CREATE TABLE.
+
+# This function will download the original MusicBrainz PostgreSQL create table SQL. It will later
+# be converted for the RDBMS we are using.
 sub mbz_download_schema {
 	unlink("temp/CreateTables.sql");
 	mbz_download_file($g_schema_url, "temp/CreateTables.sql");
@@ -86,11 +56,14 @@ sub mbz_download_schema {
 	mbz_download_file($g_index_url, "temp/CreateIndexes.sql");
 	unlink("temp/CreatePrimaryKeys.sql");
 	mbz_download_file($g_pk_url, "temp/CreatePrimaryKeys.sql");
+	unlink("temp/CreateFunctions.sql");
+	mbz_download_file($g_func_url, "temp/CreateFunctions.sql");
 }
 
-# Almost all SQL statements should be executed through mbz_do_sql(), this is
-# because if the SQL fails this function is called. The action this function
-# takes is dictate by what the user has specified in settings.pl.
+
+# Almost all SQL statements should be executed through mbz_do_sql(), this is because if the SQL
+# fails this function is called. The action this function takes is dictate by what the user has
+# specified in settings.pl.
 sub mbz_sql_error {
 	($err, $stmt) = @_;
 
@@ -104,19 +77,22 @@ sub mbz_sql_error {
 	}
 }
 
+
 # See the description for mbz_sql_error(). This function should also be used with plugins.
 sub mbz_do_sql {
 	return $dbh->do($_[0]) or mbz_sql_error($dbh->errstr, $_[0]);
 }
 
-# Some plugins may require settings to be saved for next execution. You may use
-# mbz_set_key() and mbz_get_key() for this. There is an example in plugins/example.pl
+
+# Some plugins may require settings to be saved for next execution. You may use mbz_set_key() and
+# mbz_get_key() for this. There is an example in plugins/example.pl.
 sub mbz_set_key {
 	mbz_do_sql("insert into kv set name=" . $dbh->quote($_[0]) . ", value=" . $dbh->quote($_[1]));
 }
 
-# Some plugins may require settings to be saved for next execution. You may use
-# mbz_set_key() and mbz_get_key() for this. There is an example in plugins/example.pl
+
+# Some plugins may require settings to be saved for next execution. You may use mbz_set_key() and
+# mbz_get_key() for this. There is an example in plugins/example.pl.
 sub mbz_get_key {
 	my $sth = $dbh->prepare("select * from kv where name=" . $dbh->quote($_[0]));
 	$sth->execute();
@@ -124,26 +100,32 @@ sub mbz_get_key {
 	return $result->{'value'};
 }
 
-# Download all the mbdump files
+
+# Download all the mbdump files.
 sub mbz_raw_download {
 	print "Logging into MusicBrainz FTP...\n";
 	
-	# find out the latest fullexport
+	# find out the latest NGS
 	my $latest = "";
-	my $ftp = Net::FTP->new('ftp.musicbrainz.org', Timeout => 60) or die "Cannot contact ftp.musicbrainz.org: $!";
-	$ftp->login('anonymous') or die "Can't login (ftp.musicbrainz.org): " . $ftp->message;
-	$ftp->cwd('/pub/musicbrainz/data/fullexport/') or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
-	my @ls = $ftp->ls('-lR');
-	foreach my $l (@ls) {
-		if(index($l, 'latest-is-') >= 0) {
-			$ftp->cwd('/pub/musicbrainz/data/fullexport/' . substr($l, index($l, 'latest-is-') + 10)) or
-			die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
-			last;
-		}
-	}
+	my $host = 'ftp.musicbrainz.org';
+	my $ftp = Net::FTP->new($host, Timeout => 60)
+				or die "Cannot contact $host: $!";
+	$ftp->login('anonymous') or die "Can't login ($host): " . $ftp->message;
+	$ftp->cwd('/pub/musicbrainz/data/ngs/')
+		or die "Can't change directory ($host): " . $ftp->message;
+	my @ls = $ftp->ls('-lr');
+	my @parts = split(' ', $ls[0]);
+	$latest = pop(@parts);
+	print "The latest is '$latest'\n";
+	$ftp->cwd("/pub/musicbrainz/data/ngs/$latest")
+			or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
 	
 	# these are the files we need to download, there is more but their not required.
-	my @files = ('mbdump-artistrelation.tar.bz2', 'mbdump-derived.tar.bz2', 'mbdump-stats.tar.bz2', 'mbdump.tar.bz2');
+	my @files = (
+		#'mbdump-derived.tar.bz2',
+		'mbdump-stats.tar.bz2'
+		#'mbdump.tar.bz2'
+	);
 	$ftp->binary();
 	
 	foreach my $file (@files) {
@@ -153,11 +135,13 @@ sub mbz_raw_download {
 		if(-e "replication/$file") {
 			print "File already downloaded\n";
 		} else {
-			$ftp->get($file, "replication/$file") or die("Unable to download file $file: " . $ftp->message);
+			$ftp->get($file, "replication/$file")
+				or die("Unable to download file $file: " . $ftp->message);
 			print "Done\n";
 		}
 	}
 }
+
 
 # find out there language
 sub mbz_choose_language {
@@ -167,7 +151,9 @@ sub mbz_choose_language {
 	closedir(LANGDIR);
 	my @langoptions = ();
 	foreach my $language (@languages) {
-		push(@langoptions, substr($language, 0, length($language) - 3)) if(substr($language, 0, 1) ne ".");
+		if(substr($language, 0, 1) ne ".") {
+			push(@langoptions, substr($language, 0, length($language) - 3));
+		}
 	}
 	@langoptions = sort(@langoptions);
 	for($i = 0; $i < @langoptions; ++$i) {
@@ -189,113 +175,23 @@ sub mbz_choose_language {
 	exit(0);
 }
 
-sub mbz_first_boot {
-	print $L{'init_firstboot'};
-	my $input = "";
-	
-	print "$L{'init_mysqluser'} [$g_mysql_user]: ";
-	chomp($input = <STDIN>);
-	$g_mysql_user = $input if($input ne "");
-	$g_mysql_user = "" if($input eq " ");
-	mbz_rewrite_settings();
-	
-	print "$L{'init_mysqlpass'} [$g_mysql_pass]: ";
-	chomp($input = <STDIN>);
-	$g_mysql_pass = $input if($input ne "");
-	$g_mysql_pass = "" if($input eq " ");
-	mbz_rewrite_settings();
-	
-	print "$L{'init_mysqlname'} [$g_mysql_name]: ";
-	chomp($input = <STDIN>);
-	$g_mysql_name = $input if($input ne "");
-	$g_mysql_name = "" if($input eq " ");
-	mbz_rewrite_settings();
-	
-	print "$L{'init_mysqlhost'} [$g_mysql_host]: ";
-	chomp($input = <STDIN>);
-	$g_mysql_host = $input if($input ne "");
-	$g_mysql_host = "" if($input eq " ");
-	mbz_rewrite_settings();
-	
-	print "$L{'init_mysqlport'} [$g_mysql_port]: ";
-	chomp($input = <STDIN>);
-	$g_mysql_port = $input if($input ne "");
-	$g_mysql_port = "" if($input eq " ");
-	mbz_rewrite_settings();
-	
-	$g_firstboot = 0;
-	mbz_rewrite_settings();
-	print $L{'alldone'} . ". " . $L{'restart_init'} . "\n\n";
-	exit(0);
-}
 
+# After choosing the language rewrite the firstboot.pl file.
 sub mbz_rewrite_settings {
-	open(SETTINGS, "> settings.pl");
-	print SETTINGS "##################################################\n";
-	print SETTINGS "##\n";
-	print SETTINGS "## THIS FILE IS GENERATED BY init.pl\n";
-	print SETTINGS "##\n";
-	print SETTINGS "##################################################\n\n";
-	
-	print SETTINGS "use DBI;\n\n";
-	
-	print SETTINGS "# Version\n";
-	print SETTINGS "\$g_version = \"$g_version\";\n\n";
+	open(SETTINGS, "> firstboot.pl");
 	
 	print SETTINGS "# First boot\n";
 	print SETTINGS "\$g_chosenlanguage = $g_chosenlanguage;\n";
 	print SETTINGS "\$g_firstboot      = $g_firstboot;\n\n";
-	
-	print SETTINGS "# System commands\n";
-	print SETTINGS "\$g_mv = ((\$^O eq \"MSWin32\") ? \"move\" : \"mv\");\n";
-	print SETTINGS "\$g_rm = ((\$^O eq \"MSWin32\") ? \"del\" : \"rm\");\n";
-	print SETTINGS "\$g_tar = ((\$^O eq \"MSWin32\") ? \"bunzip2\" : \"tar\");\n\n";
 
 	print SETTINGS "# Language\n";
 	print SETTINGS "\$g_language = '$g_language';\n\n";
-
-	print SETTINGS "# MySQL\n";
-	print SETTINGS "\$g_mysql_user = '$g_mysql_user';\n";
-	print SETTINGS "\$g_mysql_pass = '$g_mysql_pass';\n";
-	print SETTINGS "\$g_mysql_name = '$g_mysql_name';\n";
-	print SETTINGS "\$g_mysql_host = '$g_mysql_host';\n";
-	print SETTINGS "\$g_mysql_port = '$g_mysql_port';\n\n";
-	
-	print SETTINGS "\$g_pending     = '$g_pending';\n";
-	print SETTINGS "\$g_pendingdata = '$g_pendingdata';\n";
-	print SETTINGS "\$g_engine      = '$g_engine';      # only change this if you have a good reason\n\n";
-	
-	print SETTINGS "# Plugins\n";
-	print SETTINGS "\@g_active_plugins = (";
-	for(my $i = 0; $i < @g_active_plugins; ++$i) {
-		print SETTINGS "," if($i > 0);
-		print SETTINGS "'" . $g_active_plugins[$i] . "'";
-	}
-	print SETTINGS ");\n\n";
-	
-	print SETTINGS "# Schema\n";
-	print SETTINGS "# NOTE: we have to use schema11 because the latest revision of this file is for NGS which isn't implemented yet.\n";
-	print SETTINGS "\$g_schema_url = 'http://bugs.musicbrainz.org/browser/mb_server/branches/TemplateToolkit/admin/sql/CreateTables.sql?rev=11088&format=raw';\n\n";
-	
-	print SETTINGS "# Ignore data\n";
-	print SETTINGS "\@g_ignore_tables = (\n";
-	print SETTINGS "	'release_group_meta', 'release_group', 'release_groupusecount', 'release_groupwords', 'isrc',\n";
-	print SETTINGS "	'trm', 'trmjoin'\n";
-	print SETTINGS ");\n";
-	print SETTINGS "\@g_ignore_fields = ('release_group', 'release_groupusecount', 'trmids');\n\n";
-
-	print SETTINGS "# Errors\n";
-	print SETTINGS "\$g_die_on_dupid  = $g_die_on_dupid;\n";
-	print SETTINGS "\$g_die_on_error  = $g_die_on_error;\n";
-	print SETTINGS "\$g_die_on_plugin = $g_die_on_plugin;\n\n";
-
-	print SETTINGS "# Globals\n";
-	print SETTINGS "\$dbh = DBI->connect(\"dbi:mysql:\$g_mysql_name;host=\$g_mysql_host;port=\$g_mysql_port\", \$g_mysql_user, \$g_mysql_pass);\n\n";
 
 	print SETTINGS "return 1;\n";
 	
 	close(SETTINGS);
 }
+
 
 sub mbz_remove_quotes {
 	my $str = $_[0];
@@ -306,6 +202,7 @@ sub mbz_remove_quotes {
 	return $r;
 }
 
+
 sub mbz_init_plugins {
 	# PLUGIN_init()
 	foreach my $plugin (@g_active_plugins) {
@@ -314,8 +211,8 @@ sub mbz_init_plugins {
 	}
 }
 
-# the MB_MySQL modules use a basic key-value table to hold information
-# such as settings.
+
+# The mbzdb modules use a basic key-value table to hold information such as settings.
 sub mbz_create_extra_tables {
 	mbz_do_sql("CREATE TABLE kv ("
 	          ."name varchar(255) not null primary key,"
@@ -323,6 +220,7 @@ sub mbz_create_extra_tables {
 	         
 	return 1;
 }
+
 
 sub mbz_update_schema {
 	print $L{'downloadschema'};
@@ -354,23 +252,40 @@ sub mbz_update_schema {
 					@parts = @parts[0 .. ($i - 1)];
 					last;
 				}
-				#$parts[$i] = "VARCHAR(255)" if(substr($parts[$i], length($parts[$i]) - 2, 2) eq "[]");
-				#$parts[$i] = "INT NOT NULL" if(substr($parts[$i], 0, 6) eq "SERIAL");
-				#$parts[$i] = "CHAR(32)" if(substr($parts[$i], 0, 4) eq "UUID");
-				#$parts[$i] = "TEXT" if(substr($parts[$i], 0, 4) eq "CUBE");
-				#$parts[$i] = "CHAR(1)" if(substr($parts[$i], 0, 4) eq "BOOL");
-				#$parts[$i] = "VARCHAR(256)" if($parts[$i] eq "NAME");
-				#$parts[$i] = "0" if(substr($parts[$i], 0, 3) eq "NOW");
-				#$parts[$i] = "0" if(substr($parts[$i], 1, 1) eq "{");
-				#$parts[$i] = $parts[$i + 1] = $parts[$i + 2] = "" if($parts[$i] eq "WITH");
-				#$parts[$i] = "TEXT" if($parts[$i] eq "VARCHAR" && substr($parts[$i + 1], 0, 1) ne "(");
+				
+				if($g_db_rdbms eq 'postgresql') {
+					# because the original MusicBrainz database is PostgreSQL we only need to make
+					# minimal changes to the SQL.
+					
+					if(substr($parts[$i], 0, 4) eq "CUBE" && !$g_contrib_cube) {
+						$parts[$i] = "TEXT";
+					}
+				}
+				
+				if($g_db_rdbms eq 'mysql') {
+					if(substr($parts[$i], length($parts[$i]) - 2, 2) eq "[]") {
+						$parts[$i] = "VARCHAR(255)";
+					}
+					$parts[$i] = "INT NOT NULL" if(substr($parts[$i], 0, 6) eq "SERIAL");
+					$parts[$i] = "CHAR(32)" if(substr($parts[$i], 0, 4) eq "UUID");
+					$parts[$i] = "TEXT" if(substr($parts[$i], 0, 4) eq "CUBE");
+					$parts[$i] = "CHAR(1)" if(substr($parts[$i], 0, 4) eq "BOOL");
+					$parts[$i] = "VARCHAR(256)" if($parts[$i] eq "NAME");
+					$parts[$i] = "0" if(substr($parts[$i], 0, 3) eq "NOW");
+					$parts[$i] = "0" if(substr($parts[$i], 1, 1) eq "{");
+					$parts[$i] = $parts[$i + 1] = $parts[$i + 2] = "" if($parts[$i] eq "WITH");
+					if($parts[$i] eq "VARCHAR" && substr($parts[$i + 1], 0, 1) ne "(") {
+						$parts[$i] = "TEXT";
+					}
+				}
 			}
 			if(substr(reverse($parts[@parts - 1]), 0, 1) eq ",") {
 				$parts[@parts - 1] = substr($parts[@parts - 1], 0, length($parts[@parts - 1]) - 1);
 			}
 			next if($parts[0] eq "CHECK" || $parts[0] eq "CONSTRAINT" || $parts[0] eq "");
 			$parts[0] = mbz_remove_quotes($parts[0]);
-			$stmt = "ALTER TABLE \"$table\" ADD \"$parts[0]\" " . join(" ", @parts[1 .. @parts - 1]);
+			$stmt = "ALTER TABLE \"$table\" ADD \"$parts[0]\" " .
+				join(" ", @parts[1 .. @parts - 1]);
 		} elsif(substr($line, 0, 2) eq ");") {
 			$stmt = "ALTER TABLE \"$table\" DROP dummycolumn";
 		}
@@ -381,6 +296,7 @@ sub mbz_update_schema {
 	}
 	close(SQL);
 }
+
 
 sub mbz_format_time {
 	my $left = $_[0];
@@ -399,17 +315,43 @@ sub mbz_format_time {
 	return $r;
 }
 
-sub mbz_update_index {
+
+sub mbz_update_index_postgresql {
 	print $L{'downloadschema'};
 	mbz_download_schema();
 	print $L{'done'} . "\n";
 	
-	open(SQL, "temp/CreateIndexes.sql");
+	# we attempt to create language, load all the native functions and indexes. If the create
+	# language or functions fail they will ultimatly be skipped.
+	
+	# for PostgreSQL we need to try CREATE LANGUAGE
+	if($g_db_rdbms eq 'postgresql') {
+		mbz_do_sql("CREATE LANGUAGE plpgsql");
+	}
+	
+	open(SQL, "temp/CreateFunctions.sql");
 	chomp(my @lines = <SQL>);
-	my $table = "";
+	my $full = "";
 	foreach my $line (@lines) {
 		# skip blank lines and single bracket lines
 		next if($line eq "" || substr($line, 0, 2) eq "--" || substr($line, 0, 1) eq "\\");
+		
+		$full .= "$line\n";
+		if(index($line, 'plpgsql') > 0) {
+			#print "$full\n";
+			mbz_do_sql($full);
+			$full = "";
+		}
+	}
+	close(SQL);
+	
+	open(SQL, "temp/CreateIndexes.sql");
+	chomp(my @lines = <SQL>);
+	foreach my $line (@lines) {
+		# skip blank lines and single bracket lines
+		next if($line eq "" || substr($line, 0, 2) eq "--" || substr($line, 0, 1) eq "\\" ||
+		        substr($line, 0, 5) eq "BEGIN");
+		
 		print "$line\n";
 		mbz_do_sql($line);
 	}
@@ -417,20 +359,22 @@ sub mbz_update_index {
 	
 	open(SQL, "temp/CreatePrimaryKeys.sql");
 	chomp(my @lines = <SQL>);
-	my $table = "";
 	foreach my $line (@lines) {
 		# skip blank lines and single bracket lines
-		next if($line eq "" || substr($line, 0, 2) eq "--" || substr($line, 0, 1) eq "\\");
+		next if($line eq "" || substr($line, 0, 2) eq "--" || substr($line, 0, 1) eq "\\" ||
+		        substr($line, 0, 5) eq "BEGIN");
+		
 		print "$line\n";
 		mbz_do_sql($line);
 	}
 	close(SQL);
 }
 
-# We can't use the CreateIndexes.sql script provided by MusicBrainz because it has
-# PostgreSQL specific functions. Instead we use a cardinality calculationt to
-# determine the need for an index.
-sub mbz_update_index_old {
+
+# We can't always use the CreateIndexes.sql script provided by MusicBrainz because it has
+# PostgreSQL specific functions. Instead we use a cardinality calculation to determine the need for
+# an index.
+sub mbz_update_index_mysql {
 	# go through each table
 	$sth = $dbh->prepare('show tables');
 	$sth->execute();
@@ -444,15 +388,17 @@ sub mbz_update_index_old {
 			$start2 = time();
 			if($result2[3] eq "" && $result2[1] ne "text") {
 				print "  Calculating cardinality of $result2[0]... ";
-				$sth_card = $dbh->prepare("select count(1)/(select count(1) from \"$result[0]\") "
-				                         ."from (select distinct \"$result2[0]\" from \"$result[0]\") as t");
+				$sth_card = $dbh->prepare("select count(1)/(select count(1) from \"$result[0]\") ".
+					"from (select distinct \"$result2[0]\" from \"$result[0]\") as t");
 				$sth_card->execute();
 				my @card = $sth_card->fetchrow_array();
 				if($card[0] >= 0.01) {
 					print "$card[0] (Yes)\n";
 					print "    Adding index $result[0].$result2[0]...";
-					mbz_do_sql("create index $result[0]_" . $result2[0] . " on \"$result[0]\"(\"$result2[0]\")");
-					print " Done (", mbz_format_time(time() - $start2), ", ", mbz_format_time(time() - $start), " total)\n";
+					mbz_do_sql("create index $result[0]_" . $result2[0] .
+					           " on \"$result[0]\"(\"$result2[0]\")");
+					print " Done (", mbz_format_time(time() - $start2), ", ",
+						mbz_format_time(time() - $start), " total)\n";
 				} else {
 					print "$card[0] (No)\n";
 				}
@@ -461,8 +407,22 @@ sub mbz_update_index_old {
 	}
 }
 
-# Given a packed string from "PendingData"."Data", this sub unpacks it into
-# a hash of columnname => value.  It returns the hashref, or undef on failure.
+
+sub mbz_update_index {
+	# use the subroutine appropraite for the RDBMS
+	if($g_db_rdbms eq 'postgresql') {
+		mbz_update_index_postgresql();
+		return 1;
+	}
+	if($g_db_rdbms eq 'mysql') {
+		mbz_update_index_mysql();
+		return 1;
+	}
+}
+
+
+# Given a packed string from "PendingData"."Data", this sub unpacks it into a hash of
+# columnname => value.  It returns the hashref, or undef on failure.
 sub mbz_unpack_data {
 	my $packed = $_[0];
 	my %answer;
@@ -510,12 +470,15 @@ sub mbz_unpack_data {
 	return \%answer;
 }
 
+
 sub mbz_table_exists {
-	my $sth = $dbh->prepare("select count(1) as count from information_schema.tables where table_name='$_[0]'");
+	my $sth = $dbh->prepare("select count(1) as count from information_schema.tables ".
+	                        "where table_name='$_[0]'");
 	$sth->execute();
 	my $result = $sth->fetchrow_hashref();
 	return $result->{'count'};
 }
+
 
 sub mbz_load_data {
 	my $temp_time = time();
@@ -523,6 +486,7 @@ sub mbz_load_data {
 	@files = sort(grep { $_ ne '.' and $_ ne '..' } readdir(DIR));
 	$count = @files;
 	$i = 1;
+	
 	foreach my $file (@files) {
 		my $t1 = time();
 		$table = $file;
@@ -533,7 +497,8 @@ sub mbz_load_data {
 		next if(!mbz_table_exists($table));
   		
   		open(TABLEDUMP, "mbdump/$file") or warn("Error: cannot open file 'mbdump/$file'\n");
-  		my $sth2 = $dbh->prepare("select count(1) from information_schema.columns where table_name='$table'");
+  		my $sth2 = $dbh->prepare("select count(1) from information_schema.columns ".
+  		                         "where table_name='$table'");
 		$sth2->execute();
 		my $result2 = $sth2->fetchrow_hashref();
 		
@@ -552,45 +517,55 @@ sub mbz_load_data {
 		print "Done (" . mbz_format_time($t2 - $t1) . ")\n";
 		++$i;
 	}
+	
 	closedir(DIR);
 	my $t2 = time();
 	print "\nComplete (" . mbz_format_time($t2 - $temp_time) . ")\n";
 }
 
-# this function takes the raw replciation data in the format:
+
+# This function takes the raw replciation data in the format:
 # "id"='255756' "link0"='210318' "link1"='672498' "link_type"='3' "begindate"= "enddate"=
 # and generates the SQL key=value, non-existant values like begindate are set as NULL.
 sub mbz_map_kv {
 	my ($data, $join) = @_;
 	my $r = "";
 	my $first = 1;
+	
 	foreach my $k (keys(%$data)) {
 		$r .= $join if(!$first);
 		$first = 0 if($first);
 		$r .= "\"$k\"=" . $dbh->quote($data->{$k});
 	}
+	
 	return $r;
 }
+
 
 sub mbz_map_values {
 	my ($data, $join) = @_;
 	my $r = "(";
+	
 	my $first = 1;
 	foreach my $k (keys(%$data)) {
 		$r .= ',' if(!$first);
 		$first = 0 if($first);
 		$r .= "\"$k\"";
 	}
+	
 	$r .= ") values (";
+	
 	my $first = 1;
 	foreach my $k (keys(%$data)) {
 		$r .= ',' if(!$first);
 		$first = 0 if($first);
 		$r .= $dbh->quote($data->{$k});
 	}
+	
 	$r .= ")";
 	return $r;
 }
+
 
 sub mbz_get_current_replication {
 	my $sth = $dbh->prepare("select * from replication_control");
@@ -599,10 +574,13 @@ sub mbz_get_current_replication {
 	return $result->{'current_replication_sequence'};
 }
 
+
 # PLEASE NOTE: Each XID is a transaction, however for this function we run the replication
 #              statements inderpendantly in case the user is not using the InnoDB engine.
 sub mbz_run_transactions {
-	my $rep_handle = $dbh->prepare("select * from $g_pending left join $g_pendingdata on $g_pending.\"SeqId\"=$g_pendingdata.\"SeqId\" order by $g_pending.\"SeqId\", \"IsKey\" desc");
+	my $rep_handle = $dbh->prepare("select * from $g_pending left join $g_pendingdata ".
+		"on $g_pending.\"SeqId\"=$g_pendingdata.\"SeqId\" ".
+		"order by $g_pending.\"SeqId\", \"IsKey\" desc");
 	$rep_handle->execute();
 	my $rep_total = $dbh->prepare("select count(1) as count from $g_pending");
 	$rep_total->execute();
@@ -639,7 +617,9 @@ sub mbz_run_transactions {
 				
 			# PLUGIN_beforestatement()
 			foreach my $plugin (@g_active_plugins) {
-				eval("$plugin" . "_beforestatement('$tableName', '$rep_row[0]', '$rep_row[2]', \$data)") or die($!);
+				eval("$plugin" .
+					"_beforestatement('$tableName', '$rep_row[0]', '$rep_row[2]', \$data)")
+					or die($!);
 			}
 			
 			# execute SQL
@@ -647,12 +627,15 @@ sub mbz_run_transactions {
 			print mbz_pad_right($rows, length($totalreps), ' '), "/$totalreps (", 
 			      mbz_pad_right(mbz_round($rows / $totalreps * 100), 3, ' '), '%)   ',
 			      "Run: " . mbz_format_time(time() - $starttime) . "   ",
-			      "ETA: " . mbz_format_time(((time() - $starttime) * ($totalreps / $rows)) * (($totalreps - $rows) / $totalreps)),
+			      "ETA: " . mbz_format_time(((time() - $starttime) * ($totalreps / $rows)) *
+			      	(($totalreps - $rows) / $totalreps)),
 			      "\n";
 				
 			# PLUGIN_afterstatement()
 			foreach my $plugin (@g_active_plugins) {
-				eval("$plugin" . "_afterstatement('$tableName', '$rep_row[0]', '$rep_row[2]', \$data)") or die($!);
+				eval("$plugin" .
+					"_afterstatement('$tableName', '$rep_row[0]', '$rep_row[2]', \$data)")
+					or die($!);
 			}
 			
 			# clear for next round
@@ -675,8 +658,9 @@ sub mbz_run_transactions {
 	system("$g_rm -f -r replication/$currep");
 }
 
-# Load Pending and PendingData from the downaloded replciation into the respective tables.
-# This function is different to mbz_load_data that loads the raw mbdump/ whole tables.
+
+# Load Pending and PendingData from the downaloded replciation into the respective tables. This
+# function is different to mbz_load_data that loads the raw mbdump/ whole tables.
 sub mbz_load_pending {
 	$id = $_[0];
 
@@ -693,7 +677,8 @@ sub mbz_load_pending {
 	# load Pending and PendingData
 	print localtime() . ": Loading pending tables... ";
 	
-	open(TABLEDUMP, "replication/$id/mbdump/Pending") or warn("Error: cannot open file 'replication/$id/mbdump/Pending'\n");
+	open(TABLEDUMP, "replication/$id/mbdump/Pending")
+		or warn("Error: cannot open file 'replication/$id/mbdump/Pending'\n");
 	$dbh->do("COPY $g_pending FROM STDIN");
 	while($readline = <TABLEDUMP>) {
 		$dbh->pg_putcopydata($readline);
@@ -701,7 +686,8 @@ sub mbz_load_pending {
 	close(TABLEDUMP);
   	$dbh->pg_putcopyend();
   	
-  	open(TABLEDUMP, "replication/$id/mbdump/PendingData") or warn("Error: cannot open file 'replication/$id/mbdump/PendingData'\n");
+  	open(TABLEDUMP, "replication/$id/mbdump/PendingData")
+  		or warn("Error: cannot open file 'replication/$id/mbdump/PendingData'\n");
 	$dbh->do("COPY $g_pendingdata FROM STDIN");
 	while($readline = <TABLEDUMP>) {
 		$dbh->pg_putcopydata($readline);
@@ -719,6 +705,7 @@ sub mbz_load_pending {
 	return 1;
 }
 
+
 # Unzip downloaded replication.
 sub mbz_unzip_replication {
 	my $id = $_[0];
@@ -729,6 +716,7 @@ sub mbz_unzip_replication {
 	print "Done\n";
 	return 1;
 }
+
 
 # Unzip downloaded mbdump file and move the raw tables to mbdump/.
 sub mbz_unzip_mbdump {
@@ -746,6 +734,7 @@ sub mbz_unzip_mbdump {
 	return 1;
 }
 
+
 # Unzip all downloaded mbdumps
 sub mbz_unzip_mbdumps {
 	opendir(MBDUMP, "replication");
@@ -758,18 +747,21 @@ sub mbz_unzip_mbdumps {
 	}
 }
 
-# there is going to be a change soon to NGS (new generation schema) which is not a improved version
+
+# There is going to be a change soon to NGS (new generation schema) which is not a improved version
 # of the current schema, but a complete rewrite. Until that day comes this function will remain
 # inactive, but the principle will be useful for when NGS comes in.
 sub mbz_check_new_schema {
 	my $id = $_[0];
-	open(SCHEMAFILE, "replication/$id/SCHEMA_SEQUENCE") || die "Could not open 'replication/$id/SCHEMA_SEQUENCE'\n";
+	open(SCHEMAFILE, "replication/$id/SCHEMA_SEQUENCE") ||
+		die "Could not open 'replication/$id/SCHEMA_SEQUENCE'\n";
 	my @data = <SCHEMAFILE>;
 	chomp($data[0]);
 	close(SCHEMAFILE);
 	return 0 if($data[0] == $schema);
 	return 1;
 }
+
 
 # Download a single replication
 sub mbz_download_replication {
@@ -798,15 +790,24 @@ sub mbz_download_replication {
 	return $found;
 }
 
+
 sub mbz_show_update_help {
-  print "MB_MySQL version: $g_version\n\n";
-  print "-g=x or --skiptorep=x  Change replication number to 'x'\n";
-  print "-h or --help           Show this help.\n";
-  print "-i or --info           Only shows the information about the current replication and pending\n";
-  print "                       transactions.\n";
-  print "-p or --onlypending    Only process pending transactions then quit.\n";
-  print "-q or --quiet          Non-verbose. The status of each statement is not printed.\n";
-  print "-t or --truncate       Force TRUNCATE on Pending and PendindData tables.\n";
+	print "mbzdb version: $g_version\n\n";
+	print "-g=x or --skiptorep=x  Change replication number to 'x'\n";
+	print "-h or --help           Show this help.\n";
+	print "-i or --info           ";
+	print "Only shows the information about the current replication and pending\n";
+	print "                       transactions.\n";
+	print "-p or --onlypending    Only process pending transactions then quit.\n";
+	print "-q or --quiet          Non-verbose. The status of each statement is not printed.\n";
+	print "-t or --truncate       Force TRUNCATE on Pending and PendindData tables.\n";
 }
+
+
+# We currently don't need this but may in the future. It is called by init.pl the first time init.pl
+# is run.
+sub mbz_first_boot {
+}
+
 
 return 1;

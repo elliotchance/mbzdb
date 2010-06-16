@@ -26,24 +26,14 @@ $L{'langchanged'} = "Language changed. Please restart init.pl\n";
 
 # Welcome message
 $L{'init_welcome'} =
-"Welcome to MB_MySQL v3".
-"NOTE: Version 3 runs on a different replcation system to previous\n".
-"versions and it is recommended you build a new database with v3.".
-"See the manual for more details.\n\n";
+"Welcome to mbzdb v1.0\n\n";
 
 $L{'init_firstboot'} =
-"*** Before proceeding create the MySQL database you wish to use. ***\n\n".
+"*** Before proceeding create the database you wish to use. ***\n\n".
 "Values in square brackets indicate defaults, if you are unsure if\n".
 "the values are correct you may simply hit enter to continue.\n".
 "You may exit at any time and your options will be saved.\n".
 "Use a single space as an answer to tell it to set the value to nothing.\n\n";
-
-# mysql options
-$L{'init_mysqluser'} = "MySQL User";
-$L{'init_mysqlpass'} = "MySQL Password";
-$L{'init_mysqlname'} = "MySQL Database";
-$L{'init_mysqlhost'} = "MySQL Host";
-$L{'init_mysqlport'} = "MySQL Port";
 
 # init action
 $L{'init_action'} =

@@ -26,7 +26,7 @@ $L{'langchanged'} = "Sprache geÑndert. Bitte init.pl erneut aufrufen\n";
 
 # Welcome message
 $L{'init_welcome'} =
-"Willkommen bei MB_MySQL v3".
+"Willkommen bei mbzdb v1.0".
 "HINWEIS: Version 3 lÑuft mit einem anderen Replikations-System als\n".
 "die Ñlteren Varianten. Wir empfehlen deshalb eine neue Datenbank fÅr\n".
 "diese v3 zu erstellen.".
@@ -39,13 +39,6 @@ $L{'init_firstboot'} =
 "ob diese Werte stimmen, einfach mal ENTER drÅcken um fortzusetzen.\n".
 "Man kann jederzeit abbrechen und die Optionen werden gespeichert.\n".
 "Ein einzelner Leerschlag als Antwort setzt den Wert auf 'leer'.\n\n";
-
-# mysql options
-$L{'init_mysqluser'} = "MySQL Benutzer";
-$L{'init_mysqlpass'} = "MySQL Passwort";
-$L{'init_mysqlname'} = "MySQL Datenbank";
-$L{'init_mysqlhost'} = "MySQL Host";
-$L{'init_mysqlport'} = "MySQL Port";
 
 # init action
 $L{'init_action'} =

@@ -12,9 +12,14 @@ sub livestats_description {
 }
 
 sub livestats_init {
+	# for PostgreSQL we need to CREATE LANGUAGE
+	if($g_db_rdbms eq 'postgresql') {
+		mbz_do_sql("CREATE LANGUAGE plpgsql");
+	}
+
 	# create tables
 	print "Creating livestats table...";
-	mbz_do_sql("CREATE OR REPLACE FUNCTION update_livestats(newname character varying(255), newval bigint)\n".
+	mbz_do_sql("CREATE OR REPLACE FUNCTION update_livestats(newname varchar(255), newval bigint)\n".
 	           "RETURNS VOID AS \$\$\n".
 	           "BEGIN\n".
 	           "    UPDATE livestats SET val = newval WHERE name = newname;\n".
@@ -35,13 +40,25 @@ sub livestats_init {
 	print " Done\n";
 	
 	# count tables
-	$sth = $dbh->prepare("select table_name from information_schema.tables where table_schema='public'");
+	if($g_db_rdbms eq 'postgresql') {
+		$sth = $dbh->prepare("select table_name from information_schema.tables where table_schema='public'");
+	}
+	if($g_db_rdbms eq 'mysql') {
+		$sth = $dbh->prepare("show tables");
+	}
 	$sth->execute();
 	$start = time();
 	while(@result = $sth->fetchrow_array()) {
 		if($result[0] ne "livestats") {
 			print "  Counting records for table $result[0]... ";
-			mbz_do_sql("insert into livestats (name, val) values ('count.$result[0]', (select count(1) from \"$result[0]\"))");
+			
+			# we do a insert then update in case the record alredy exists we make sure the value is
+			# updated
+			mbz_do_sql("insert into livestats (name, val) values ".
+			           "('count.$result[0]', (select count(1) from \"$result[0]\"))");
+			mbz_do_sql("update livestats set val=(select count(1) from \"$result[0]\") ".
+			           "where name='count.$result[0]'");
+			           
 			print "Done\n";
 		}
 	}
