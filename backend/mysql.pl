@@ -114,41 +114,79 @@ sub backend_mysql_update_schema {
 }
 
 
-# We can't always use the CreateIndexes.sql script provided by MusicBrainz because it has
-# PostgreSQL specific functions. Instead we use a cardinality calculation to determine the need for
-# an index.
-sub backend_mysql_update_index {
-	# go through each table
-	$sth = $dbh->prepare('show tables');
+# backend_mysql_get_column_type($table_name, $col_name)
+# Get the MySQL column type.
+# @param $table_name The name of the table.
+# @param $col_name The name of the column to fetch the type.
+# @return MySQL column type.
+sub backend_mysql_get_column_type {
+	my ($table_name, $col_name) = @_;
+	
+	my $sth = $dbh->prepare("describe `$table_name`");
 	$sth->execute();
-	$start = time();
 	while(@result = $sth->fetchrow_array()) {
-		next if($result[0] eq $g_pending || $result[0] eq $g_pendingdata);
+		return $result[1] if($result[0] eq $col_name);
+	}
+	
+	return "";
+}
+
+
+# backend_mysql_update_index()
+# Attemp to pull as much relevant information from CreateIndexes.sql as we can. MySQL does not
+# support function indexes so we will skip those. Any indexes created already on the database will
+# be left intact.
+# @return Always 1.
+sub backend_mysql_update_index {
+	open(SQL, "temp/CreateIndexes.sql");
+	chomp(my @lines = <SQL>);
+	
+	foreach my $line (@lines) {
+		$line = mbz_trim($line);
+		my $pos_index = index($line, 'INDEX ');
+		my $pos_on = index($line, 'ON ');
 		
-		print "Indexing $result[0]\n";
-		$sth2 = $dbh->prepare("\\d \"" . $result[0] . "\"");
-		$sth2->execute();
-		while(@result2 = $sth2->fetchrow_array()) {
-			$start2 = time();
-			if($result2[3] eq "" && $result2[1] ne "text") {
-				print "  Calculating cardinality of $result2[0]... ";
-				$sth_card = $dbh->prepare("select count(1)/(select count(1) from \"$result[0]\") ".
-					"from (select distinct \"$result2[0]\" from \"$result[0]\") as t");
-				$sth_card->execute();
-				my @card = $sth_card->fetchrow_array();
-				if($card[0] >= 0.01) {
-					print "$card[0] (Yes)\n";
-					print "    Adding index $result[0].$result2[0]...";
-					mbz_do_sql("create index $result[0]_" . $result2[0] .
-					           " on \"$result[0]\"(\"$result2[0]\")");
-					print " Done (", mbz_format_time(time() - $start2), ", ",
-						mbz_format_time(time() - $start), " total)\n";
-				} else {
-					print "$card[0] (No)\n";
-				}
+		# skip blank lines, comments, psql settings and lines that arn't any use to us.
+		next if($line eq '' || substr($line, 0, 2) eq '--' || substr($line, 0, 1) eq "\\" ||
+		        $pos_index < 0);
+		        
+		# skip function-based indexes.
+		next if($line =~ /.*\(.*\(.*\)\)/);
+		
+		# get the names
+		my $index_name = mbz_trim(substr($line, $pos_index + 6, index($line, ' ', $pos_index + 7) -
+		                       $pos_index - 6));
+		my $table_name = mbz_trim(substr($line, $pos_on + 3, index($line, ' ', $pos_on + 4) -
+		                       $pos_on - 3));
+		my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
+		
+		# see if the index aleady exists, if so skip
+		next if(mbz_index_exists($index_name));
+		
+		# split and clean column names. this is also a good time to find out there type, if its
+		# TEXT then MySQL requires and index length.
+		my @columns = split(",", $cols);
+		for(my $i = 0; $i < @columns; ++$i) {
+			if(backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') {
+				$columns[$i] = "`" . mbz_trim($columns[$i]) . "`(32)";
+			} else {
+				$columns[$i] = "`" . mbz_trim($columns[$i]) . "`";
 			}
 		}
+		
+		# now we construct the index back together in case there was changes along the way
+		$new_line = substr($line, 0, $pos_index) . "INDEX `$index_name` ON `$table_name` (";
+		$new_line .= join(",", @columns) . ")";
+		
+		# all looks good so far ... create the index
+		mbz_do_sql($new_line);
+		
+		print "$new_line\n";
 	}
+
+	close(SQL);
+	exit(0);
+	return 1;
 }
 
 
@@ -166,6 +204,30 @@ sub backend_mysql_table_exists {
 	}
 	
 	# table was not found
+	return 0;
+}
+
+
+# mbz_index_exists($index_name)
+# Check if an index already exists.
+# @param $index_name The name of the index to look for.
+# @return 1 if the index exists, otherwise 0.
+sub backend_mysql_index_exists {
+	my $index_name = $_[0];
+	
+	# yes I know this is a highly inefficent way to do it, but its simple and is only called on
+	# schema changes.
+	my $sth = $dbh->prepare("show tables");
+	$sth->execute();
+	while(@result = $sth->fetchrow_array()) {
+		my $sth2 = $dbh->prepare("show indexes from `$result[0]`");
+		$sth2->execute();
+		while(@result2 = $sth2->fetchrow_array()) {
+			return 1 if($result2[2] eq $index_name);
+		}
+	}
+	
+	# the index was not found
 	return 0;
 }
 

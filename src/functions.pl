@@ -320,6 +320,18 @@ sub mbz_update_index {
 }
 
 
+# mbz_update_index()
+# This subroutine is just a controller that redirects to the index exists for the RDBMS we are
+# using.
+# @param $index_name The name of the index to look for.
+# @return Passthru from backend_DB_index_exists().
+sub mbz_index_exists {
+	# use the subroutine appropriate for the RDBMS
+	my $index_name = $_[0];
+	return eval("backend_$g_db_rdbms" . "_index_exists(\"$index_name\");");
+}
+
+
 # mbz_create_extra_tables()
 # This subroutine is just a controller that redirects to the create extra tables for the RDBMS we
 # are using.

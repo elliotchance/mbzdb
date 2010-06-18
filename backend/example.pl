@@ -70,6 +70,19 @@ sub backend_NAME_table_column_exists {
 }
 
 
+# mbz_index_exists($index_name)
+# Check if an index already exists.
+# @param $index_name The name of the index to look for.
+# @return 1 if the index exists, otherwise 0.
+sub backend_NAME_index_exists {
+	my $index_name = $_[0];
+	
+	# your code here
+	
+	return 0;
+}
+
+
 # mbz_load_data()
 # Load the data from the mbdump files into the tables.
 sub backend_NAME_load_data {

@@ -239,5 +239,18 @@ sub backend_postgresql_create_extra_tables {
 }
 
 
+# mbz_index_exists($index_name)
+# Check if an index already exists.
+# @param $index_name The name of the index to look for.
+# @return 1 if the index exists, otherwise 0.
+sub backend_postgresql_index_exists {
+	my $index_name = $_[0];
+	
+	# TODO: incomplete
+	
+	return 0;
+}
+
+
 # be nice
 return 1;
