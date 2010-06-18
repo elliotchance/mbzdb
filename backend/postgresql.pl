@@ -12,6 +12,18 @@
 # must stay in the file.
 #
 
+
+# mbz_connect()
+# Make database connection. It will set the global $dbh and it will return it.
+# $g_db_name, $g_db_host, $g_db_port, $g_db_user and $g_db_pass are supplied by settings.pl.
+# @return $dbh
+sub backend_postgresql_connect {
+	$dbh = DBI->connect("dbi:Pg:dbname=$g_db_name;host=$g_db_host;port=$g_db_port",
+						$g_db_user, $g_db_pass);
+	return $dbh;
+}
+
+
 sub backend_postgresql_update_index {
 	print $L{'downloadschema'};
 	mbz_download_schema();
@@ -81,12 +93,6 @@ sub backend_postgresql_update_index {
 # to create (and replace) them. This is just so all the error messages and so nasty.
 # @return Always 1.
 sub backend_postgresql_update_schema {
-	print $L{'downloadschema'};
-	mbz_download_schema();
-	print $L{'done'} . "\n";
-	
-	# this is where it has to translate PostgreSQL to MySQL
-	# as well as making any modifications needed.
 	open(SQL, "temp/CreateTables.sql");
 	chomp(my @lines = <SQL>);
 	my $table = "";
@@ -102,7 +108,8 @@ sub backend_postgresql_update_schema {
 			}
 			$table = mbz_trim($table);
 			print $L{'table'} . " $table\n";
-			$stmt = "CREATE TABLE \"$table\" (dummycolumn int) tablespace $g_tablespace";
+			$stmt = "CREATE TABLE \"$table\" (dummycolumn int)";
+			$stmt .= " tablespace $g_tablespace" if($g_tablespace ne '');
 		} elsif(substr($line, 0, 1) eq " " || substr($line, 0, 1) eq "\t") {
 			my @parts = split(" ", $line);
 			for($i = 0; $i < @parts; ++$i) {
@@ -141,6 +148,7 @@ sub backend_postgresql_update_schema {
 
 # backend_postgresql_table_exists($tablename)
 # Check if a table already exists.
+# @param $table_name The name of the table to look for.
 # @return 1 if the table exists, otherwise 0.
 sub backend_postgresql_table_exists {
 	my $sth = $dbh->prepare("select count(1) as count from information_schema.tables ".
@@ -148,6 +156,20 @@ sub backend_postgresql_table_exists {
 	$sth->execute();
 	my $result = $sth->fetchrow_hashref();
 	return $result->{'count'};
+}
+
+
+# mbz_table_column_exists($table_name, $col_name)
+# Check if a table already has a column.
+# @param $table_name The name of the table to look for.
+# @param $col_name The column name in the table.
+# @return 1 if the table column exists, otherwise 0.
+sub backend_postgresql_table_column_exists {
+	my ($table_name, $col_name) = @_;
+	
+	# TODO: incomplete
+	
+	return 0;
 }
 
 
@@ -197,6 +219,23 @@ sub backend_postgresql_load_data {
 	my $t2 = time();
 	print "\nComplete (" . mbz_format_time($t2 - $temp_time) . ")\n";
 	return 1;
+}
+
+
+# backend_postgresql_create_extra_tables()
+# The mbzdb plugins use a basic key-value table to hold information such as settings.
+# @see mbz_set_key(), mbz_get_key().
+# @return Passthru from $dbh::do().
+sub backend_postgresql_create_extra_tables {
+	# no need to if the table already exists
+	return 1 if(mbz_table_exists("kv"));
+
+	$sql = "CREATE TABLE kv (" .
+	       "name varchar(255) not null primary key," .
+	       "value text" .
+	       ")";
+	$sql .= " tablespace $g_tablespace" if($g_tablespace ne "");
+	return mbz_do_sql($sql);
 }
 
 

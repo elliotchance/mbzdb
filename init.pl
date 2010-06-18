@@ -2,7 +2,8 @@
 
 require "settings.pl";
 require "languages/$g_language.pl";
-require "functions.pl";
+require "backend/$g_db_rdbms.pl";
+require "src/functions.pl";
 
 # first boot
 mbz_choose_language() if(!$g_chosenlanguage);

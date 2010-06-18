@@ -4,7 +4,8 @@ use LWP::UserAgent;
 use Net::FTP;
 
 
-# TODO: There is too many die() problems with file handles and plugins need to issue a warn().
+# connect to the specific RDBMS.
+mbz_connect();
 
 
 # mbz_trim($string)
@@ -103,9 +104,9 @@ sub mbz_sql_error {
 	return 0 if((substr($err, 0, 15) eq "Duplicate entry") && ($g_die_on_dupid == 0));
 
 	if($g_die_on_error == 1) {
-		die "SQL: '$stmt'\n\n";
+		die("SQL: '$stmt'\n\n");
 	} else {
-		print "SQL: '$stmt'\n\n";
+		warn("SQL: '$stmt'\n\n");
 	}
 	
 	return 0;
@@ -243,7 +244,7 @@ sub mbz_choose_language {
 # After choosing the language rewrite the firstboot.pl file.
 # @return 1 on success, otherwise 0.
 sub mbz_rewrite_settings {
-	open(SETTINGS, "> firstboot.pl") or return 0;
+	open(SETTINGS, "> src/firstboot.pl") or return 0;
 	
 	print SETTINGS "# First boot\n";
 	print SETTINGS "\$g_chosenlanguage = $g_chosenlanguage;\n";
@@ -276,25 +277,15 @@ sub mbz_remove_quotes {
 # mbz_init_plugins()
 # Execute the PLUGIN_init() for each currently active plugin. Active plugins are set in
 # src/settings.pl.
-# @return Returns 1 on success however will also issue a die() is the PLUGIN_init() fails.
+# @return Always 1.
 sub mbz_init_plugins {
-	# PLUGIN_init()
+	# PLUGIN_init() for each active plugin
 	foreach my $plugin (@g_active_plugins) {
 		require "plugins/$plugin.pl";
-		eval($plugin . "_init()") or die($!);
+		eval($plugin . "_init()") or warn($!);
 	}
-}
-
-
-# mbz_create_extra_tables()
-# The mbzdb modules use a basic key-value table to hold information such as settings.
-# @see mbz_set_key(), mbz_get_key().
-# @return Passthru from $dbh::do().
-sub mbz_create_extra_tables {
-	# TODO: this function must be moved so that it can call it for each RDMBMS.
-	return mbz_do_sql("CREATE TABLE kv ("
-	                  "name varchar(255) not null primary key,"
-	                  "value text) tablespace $g_tablespace");
+	
+	return 1;
 }
 
 
@@ -329,13 +320,49 @@ sub mbz_update_index {
 }
 
 
+# mbz_create_extra_tables()
+# This subroutine is just a controller that redirects to the create extra tables for the RDBMS we
+# are using.
+# @return Passthru from backend_DB_update_schema().
+sub mbz_create_extra_tables {
+	# use the subroutine appropriate for the RDBMS
+	return eval("backend_$g_db_rdbms" . "_create_extra_tables();");
+}
+
+
 # mbz_update_schema()
 # This subroutine is just a controller that redirects to the update schema for the RDBMS we are
 # using.
 # @return Passthru from backend_DB_update_schema().
 sub mbz_update_schema {
+	print $L{'downloadschema'};
+	mbz_download_schema();
+	print $L{'done'} . "\n";
+	
 	# use the subroutine appropriate for the RDBMS
 	return eval("backend_$g_db_rdbms" . "_update_schema();");
+}
+
+
+# mbz_table_column_exists($table_name, $col_name)
+# This subroutine is just a controller that redirects to the table column exists for the RDBMS we
+# are using.
+# @param $table_name The name of the table to look for.
+# @param $col_name The column name in the table.
+# @return 1 if the table column exists, otherwise 0.
+sub mbz_table_column_exists {
+	# use the subroutine appropriate for the RDBMS
+	my ($table_name, $col_name) = @_;
+	return eval("backend_$g_db_rdbms" . "_table_column_exists(\"$table_name\", \"$col_name\");");
+}
+
+
+# mbz_connect()
+# This subroutine is just a controller that redirects to the connect for the RDBMS we are using.
+# @return Passthru from backend_DB_connect().
+sub mbz_connect {
+	# use the subroutine appropriate for the RDBMS
+	return eval("backend_$g_db_rdbms" . "_connect();");
 }
 
 
@@ -477,20 +504,30 @@ sub mbz_get_current_replication {
 }
 
 
+# mbz_get_count($table_name, $extra)
+# @param $table_name The name of the table to count from.
+# @param $extra Extra string to put at the end.
+# @return SQL count() result.
+sub mbz_get_count {
+	my ($table_name, $extra) = @_;
+	my $q = $dbh->prepare("select count(1) as count from $table_name $extra");
+	$q->execute();
+	return $rep_total->fetchrow_hashref()->{'count'};
+}
+
+
 # mbz_run_transactions()
 # TODO: fix description
 # PLEASE NOTE: Each XID is a transaction, however for this function we run the replication
 #              statements inderpendantly in case the user is not using the InnoDB engine.
-# @return Always 1, but can issue a die if a plugin fails.
+# @return Always 1.
 sub mbz_run_transactions {
 	# TODO: some of this is database specific but dont move the whole subroutine, thats too messy.
 	my $rep_handle = $dbh->prepare("select * from $g_pending left join $g_pendingdata ".
 		"on $g_pending.\"SeqId\"=$g_pendingdata.\"SeqId\" ".
 		"order by $g_pending.\"SeqId\", \"IsKey\" desc");
 	$rep_handle->execute();
-	my $rep_total = $dbh->prepare("select count(1) as count from $g_pending");
-	$rep_total->execute();
-	$totalreps = $rep_total->fetchrow_hashref()->{'count'};
+	my $totalreps = mbz_get_count($g_pending);
 	$starttime = time() - 1;
 	$currep = mbz_get_current_replication();
 	
@@ -523,9 +560,9 @@ sub mbz_run_transactions {
 				
 			# PLUGIN_beforestatement()
 			foreach my $plugin (@g_active_plugins) {
-				eval("$plugin" .
+				eval($plugin .
 					"_beforestatement('$tableName', '$rep_row[0]', '$rep_row[2]', \$data)")
-					or die($!);
+					or warn($!);
 			}
 			
 			# execute SQL
@@ -539,9 +576,9 @@ sub mbz_run_transactions {
 				
 			# PLUGIN_afterstatement()
 			foreach my $plugin (@g_active_plugins) {
-				eval("$plugin" .
+				eval($plugin .
 					"_afterstatement('$tableName', '$rep_row[0]', '$rep_row[2]', \$data)")
-					or die($!);
+					or warn($!);
 			}
 			
 			# clear for next round
@@ -555,7 +592,7 @@ sub mbz_run_transactions {
 	
 	# PLUGIN_afterreplication()
 	foreach my $plugin (@g_active_plugins) {
-		eval($plugin . "_afterreplication($currep)") or die($!);
+		eval($plugin . "_afterreplication($currep)") or warn($!);
 	}
 	
 	# Clean up. Remove old replication
@@ -571,7 +608,7 @@ sub mbz_run_transactions {
 # Load Pending and PendingData from the downaloded replciation into the respective tables. This
 # function is different to mbz_load_data that loads the raw mbdump/ whole tables.
 # @param $id The current replication number. See mbz_get_current_replication().
-# @return Always 1, but can issue a die if a plugin fails.
+# @return Always 1.
 sub mbz_load_pending {
 	$id = $_[0];
 
@@ -610,7 +647,7 @@ sub mbz_load_pending {
 	
 	# PLUGIN_beforereplication()
 	foreach my $plugin (@g_active_plugins) {
-		eval($plugin . "_beforereplication($id)") or die($!);
+		eval($plugin . "_beforereplication($id)") or warn($!);
 	}
 	
 	return 1;
