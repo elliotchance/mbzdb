@@ -252,5 +252,55 @@ sub backend_postgresql_index_exists {
 }
 
 
+# mbz_load_pending($id)
+# Load Pending and PendingData from the downaloded replication into the respective tables. This
+# function is different to mbz_load_data that loads the raw mbdump/ whole tables.
+# @param $id The current replication number. See mbz_get_current_replication().
+# @return Always 1.
+sub backend_postgresql_load_pending {
+	$id = $_[0];
+
+	# make sure there are no pending transactions before cleanup
+	$temp = $dbh->prepare("SELECT count(1) FROM $g_pending");
+	$temp->execute;
+	@row = $temp->fetchrow_array();
+	$temp->finish;
+	return -1 if($row[0] ne '0');
+
+	# perform cleanup (makes sure there no left over records in the PendingData table)
+	$dbh->do("DELETE FROM $g_pending");
+
+	# load Pending and PendingData
+	print localtime() . ": Loading pending tables... ";
+	
+	open(TABLEDUMP, "replication/$id/mbdump/Pending")
+		or warn("Error: cannot open file 'replication/$id/mbdump/Pending'\n");
+	$dbh->do("COPY $g_pending FROM STDIN");
+	while($readline = <TABLEDUMP>) {
+		$dbh->pg_putcopydata($readline);
+	}
+	close(TABLEDUMP);
+  	$dbh->pg_putcopyend();
+  	
+  	open(TABLEDUMP, "replication/$id/mbdump/PendingData")
+  		or warn("Error: cannot open file 'replication/$id/mbdump/PendingData'\n");
+	$dbh->do("COPY $g_pendingdata FROM STDIN");
+	while($readline = <TABLEDUMP>) {
+		$dbh->pg_putcopydata($readline);
+	}
+	close(TABLEDUMP);
+  	$dbh->pg_putcopyend();
+  	
+	print "Done\n";
+	
+	# PLUGIN_beforereplication()
+	foreach my $plugin (@g_active_plugins) {
+		eval($plugin . "_beforereplication($id)") or warn($!);
+	}
+	
+	return 1;
+}
+
+
 # be nice
 return 1;

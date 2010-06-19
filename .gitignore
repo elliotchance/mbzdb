@@ -1,2 +1,4 @@
 .AppleDouble*
 :*
+cloc.pl
+sloc.sh

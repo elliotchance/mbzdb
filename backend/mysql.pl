@@ -62,6 +62,7 @@ sub backend_mysql_update_schema {
 			# do not create the table if it already exists
 			if(!mbz_table_exists($table)) {
 				$stmt = "CREATE TABLE `$table` (dummycolumn int)";
+				$stmt .= " engine=$g_mysql_engine" if($g_mysql_engine ne '');
 				$stmt .= " tablespace $g_tablespace" if($g_tablespace ne '');
 			}
 		} elsif(substr($line, 0, 1) eq " " || substr($line, 0, 1) eq "\t") {
@@ -160,6 +161,10 @@ sub backend_mysql_update_index {
 		                       $pos_on - 3));
 		my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
 		
+		# PostgreSQL will put double-quotes around some entity names, we have to remove these
+		$index_name = mbz_remove_quotes($index_name);
+		$table_name = mbz_remove_quotes($table_name);
+		
 		# see if the index aleady exists, if so skip
 		next if(mbz_index_exists($index_name));
 		
@@ -168,9 +173,9 @@ sub backend_mysql_update_index {
 		my @columns = split(",", $cols);
 		for(my $i = 0; $i < @columns; ++$i) {
 			if(backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') {
-				$columns[$i] = "`" . mbz_trim($columns[$i]) . "`(32)";
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`(32)";
 			} else {
-				$columns[$i] = "`" . mbz_trim($columns[$i]) . "`";
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
 			}
 		}
 		
@@ -270,8 +275,19 @@ sub backend_mysql_create_extra_tables {
 	       "name varchar(255) not null primary key," .
 	       "value text" .
 	       ")";
+	$sql .= " engine=$g_mysql_engine" if($g_mysql_engine ne '');
 	$sql .= " tablespace $g_tablespace" if($g_tablespace ne "");
 	return mbz_do_sql($sql);
+}
+
+
+# mbz_load_pending($id)
+# Load Pending and PendingData from the downaloded replication into the respective tables. This
+# function is different to mbz_load_data that loads the raw mbdump/ whole tables.
+# @param $id The current replication number. See mbz_get_current_replication().
+# @return Always 1.
+sub backend_mysql_load_pending {
+	return 1;
 }
 
 

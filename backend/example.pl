@@ -89,6 +89,15 @@ sub backend_NAME_load_data {
 }
 
 
+# mbz_load_pending($id)
+# Load Pending and PendingData from the downaloded replication into the respective tables. This
+# function is different to mbz_load_data that loads the raw mbdump/ whole tables.
+# @param $id The current replication number. See mbz_get_current_replication().
+# @return Always 1.
+sub backend_NAME_load_pending {
+}
+
+
 # mbz_create_extra_tables()
 # The mbzdb plugins use a basic key-value table to hold information such as settings.
 # @see mbz_set_key(), mbz_get_key().

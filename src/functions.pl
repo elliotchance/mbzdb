@@ -162,20 +162,24 @@ sub mbz_get_key {
 sub mbz_raw_download {
 	print "Logging into MusicBrainz FTP...\n";
 	
-	# find out the latest NGS
-	my $latest = "";
-	my $host = 'ftp.musicbrainz.org';
-	my $ftp = Net::FTP->new($host, Timeout => 60)
-				or die "Cannot contact $host: $!";
-	$ftp->login('anonymous') or die "Can't login ($host): " . $ftp->message;
-	$ftp->cwd('/pub/musicbrainz/data/ngs/')
-		or die "Can't change directory ($host): " . $ftp->message;
-	my @ls = $ftp->ls('-lr');
-	my @parts = split(' ', $ls[0]);
-	$latest = pop(@parts);
-	print "The latest is mbdump is '$latest'\n";
-	$ftp->cwd("/pub/musicbrainz/data/ngs/$latest")
-			or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
+	if($g_use_ngs) {
+		# find out the latest NGS
+		my $latest = "";
+		my $host = 'ftp.musicbrainz.org';
+		my $ftp = Net::FTP->new($host, Timeout => 60)
+					or die "Cannot contact $host: $!";
+		$ftp->login('anonymous') or die "Can't login ($host): " . $ftp->message;
+		$ftp->cwd('/pub/musicbrainz/data/ngs/')
+			or die "Can't change directory ($host): " . $ftp->message;
+		my @ls = $ftp->ls('-lr');
+		my @parts = split(' ', $ls[0]);
+		$latest = pop(@parts);
+		print "The latest is mbdump is '$latest'\n";
+		$ftp->cwd("/pub/musicbrainz/data/ngs/$latest")
+				or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
+	} else {
+		# TODO: get non-NGS downloads.
+	}
 	
 	# these are the files we need to download, there is more but their not required.
 	my @files = (
@@ -320,6 +324,16 @@ sub mbz_update_index {
 }
 
 
+# mbz_load_pending()
+# This subroutine is just a controller that redirects to the load pending for the RDBMS we are
+# using.
+# @return Passthru from backend_DB_load_pending().
+sub mbz_load_pending {
+	# use the subroutine appropriate for the RDBMS
+	return eval("backend_$g_db_rdbms" . "_load_pending();");
+}
+
+
 # mbz_update_index()
 # This subroutine is just a controller that redirects to the index exists for the RDBMS we are
 # using.
@@ -427,11 +441,11 @@ sub mbz_unpack_data {
 
 		$packed = substr($packed, $+[0]);
 
-		if (defined $v) {
+		if(defined($v)) {
 			my $t = '';
-			while (length $v) {
-				$t .= "\\", next if $v =~ s/\A\\\\//;
-				$t .= "'", next if $v =~ s/\A\\'// or $v =~ s/\A''//;
+			while(length($v)) {
+				$t .= "\\", next if($v =~ s/\A\\\\//);
+				$t .= "'", next if($v =~ s/\A\\'// or $v =~ s/\A''//);
 				$t .= substr($v, 0, 1, '');
 			}
 			$v = $t;
@@ -529,12 +543,35 @@ sub mbz_get_count {
 
 
 # mbz_run_transactions()
-# TODO: fix description
-# PLEASE NOTE: Each XID is a transaction, however for this function we run the replication
-#              statements inderpendantly in case the user is not using the InnoDB engine.
+#
+# The replications work by first loading a Pending and PendingData table. Each Pending record is
+# a single replication action that joins to one or two records in the PendingData table. The
+# PendingData table for any given replication record will have a raw data record and key record
+# which is indicated by IsKey. The raw data record is used for INSERT and UPDATE as the new data to
+# be inserted whereas the key record is use to specify the columns for the WHERE clause to be used
+# in UPDATE and DELETE statements.
+#
+# Multiple replications are grouped into a single transaction with the XID column. For example a
+# transaction would include the INSERT of a release and all the tracks for that album. The
+# transaction support isn't implemented yet as the data given from MusicBrainz is assumed to be
+# correct because it has already been passed the constraint checks. There may be some benefit to
+# speed if the whole hours replication is wrapped into a single transaction but this can be left
+# for some time in the future. It is however important that the Pending data run in the correct
+# order specified by SeqId.
+#
+# Those wishing to keep the replication data can use the pendinglog plugin which will put all the
+# incoming replications into a separate table that will grow over time. The pendinglog plugin uses
+# a single table that uses one record per one replication item regardless of the replication action
+# taken.
+#
+# This subroutine could possibly be moved to backend specific so that each RDBMS can impose its own
+# optimsed rules however the SQL will always be the same, so for now i'll keep it generic SQL for
+# all backend databases.
+#
+# @note Each XID is a transaction, however for this function we run the replication statements
+#       inderpendantly in case the user is not using the InnoDB storage engine with MySQL.
 # @return Always 1.
 sub mbz_run_transactions {
-	# TODO: some of this is database specific but dont move the whole subroutine, thats too messy.
 	my $rep_handle = $dbh->prepare("select * from $g_pending left join $g_pendingdata ".
 		"on $g_pending.\"SeqId\"=$g_pendingdata.\"SeqId\" ".
 		"order by $g_pending.\"SeqId\", \"IsKey\" desc");
@@ -616,56 +653,6 @@ sub mbz_run_transactions {
 }
 
 
-# mbz_load_pending($id)
-# Load Pending and PendingData from the downaloded replciation into the respective tables. This
-# function is different to mbz_load_data that loads the raw mbdump/ whole tables.
-# @param $id The current replication number. See mbz_get_current_replication().
-# @return Always 1.
-sub mbz_load_pending {
-	$id = $_[0];
-
-	# make sure there are no pending transactions before cleanup
-	$temp = $dbh->prepare("SELECT count(1) FROM $g_pending");
-	$temp->execute;
-	@row = $temp->fetchrow_array();
-	$temp->finish;
-	return -1 if($row[0] ne '0');
-
-	# perform cleanup (makes sure there no left over records in the PendingData table)
-	$dbh->do("DELETE FROM $g_pending");
-
-	# load Pending and PendingData
-	print localtime() . ": Loading pending tables... ";
-	
-	open(TABLEDUMP, "replication/$id/mbdump/Pending")
-		or warn("Error: cannot open file 'replication/$id/mbdump/Pending'\n");
-	$dbh->do("COPY $g_pending FROM STDIN");
-	while($readline = <TABLEDUMP>) {
-		$dbh->pg_putcopydata($readline);
-	}
-	close(TABLEDUMP);
-  	$dbh->pg_putcopyend();
-  	
-  	open(TABLEDUMP, "replication/$id/mbdump/PendingData")
-  		or warn("Error: cannot open file 'replication/$id/mbdump/PendingData'\n");
-	$dbh->do("COPY $g_pendingdata FROM STDIN");
-	while($readline = <TABLEDUMP>) {
-		$dbh->pg_putcopydata($readline);
-	}
-	close(TABLEDUMP);
-  	$dbh->pg_putcopyend();
-  	
-	print "Done\n";
-	
-	# PLUGIN_beforereplication()
-	foreach my $plugin (@g_active_plugins) {
-		eval($plugin . "_beforereplication($id)") or warn($!);
-	}
-	
-	return 1;
-}
-
-
 # mbz_unzip_replication($id)
 # Unzip downloaded replication.
 # @param $id The current replication number. See mbz_get_current_replication().
@@ -742,15 +729,12 @@ sub mbz_download_replication {
 	my $id = $_[0];
 	print "===== $id =====\n";
 	
-	# its possible the script was exited by the user or a crash during
-	# downloading or decompression, for this reason we always download
-	# the latest copy.
+	# its possible the script was exited by the user or a crash during downloading or decompression,
+	# for this reason we always download the latest copy.
 	print localtime() . ": Downloading... ";
 	$localfile = "replication/replication-$id.tar.bz2";
-	$url = "ftp://ftp.musicbrainz.org/pub/musicbrainz/data/replication/replication-$id.tar.bz2";
-	$ua = LWP::UserAgent->new();
-	$request = HTTP::Request->new('GET', $url);
-	$resp = $ua->request($request, $localfile);
+	$url = "$g_rep_url/replication-$id.tar.bz2";
+	my $resp = mbz_download_file($url, $localfile);
 	$found = 0;
 	
 	use HTTP::Status qw( RC_OK RC_NOT_FOUND RC_NOT_MODIFIED );
