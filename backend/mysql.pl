@@ -172,10 +172,9 @@ sub backend_mysql_update_index {
 		# TEXT then MySQL requires and index length.
 		my @columns = split(",", $cols);
 		for(my $i = 0; $i < @columns; ++$i) {
+			$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
 			if(backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') {
-				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`(32)";
-			} else {
-				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
+				$columns[$i] .= "(32)";
 			}
 		}
 		
@@ -190,7 +189,7 @@ sub backend_mysql_update_index {
 	}
 
 	close(SQL);
-	exit(0);
+	print "Done\n";
 	return 1;
 }
 

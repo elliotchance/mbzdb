@@ -17,8 +17,7 @@ if($action !~ /^-?\d/ or $action < 0 or $action > 6) {
 	goto grabaction;
 }
 
-# don't go crazy just yet
-# first give more information about the action
+# don't go crazy just yet - first give more information about the action
 if($action == 1) {
 	print $L{'init_actionfull'};
 } elsif($action == 2) {

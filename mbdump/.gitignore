@@ -1,2 +1,4 @@
 .AppleDouble*
 :*
+!blank.file
+!.gitignore

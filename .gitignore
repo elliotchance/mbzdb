@@ -2,3 +2,5 @@
 :*
 cloc.pl
 sloc.sh
+mbdump/*
+replication/*
