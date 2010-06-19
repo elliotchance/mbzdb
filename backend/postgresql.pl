@@ -1,18 +1,3 @@
-#
-# The backend/ directory includes files that follows an interface that allows
-# other database backends to be implemented without the need to alter the core.
-#
-# The file is named as $name$.pl where $name$ is the case-sensitive name for
-# the database backend, this can be anything you like, but the name of the file
-# you choose is very important to the name of the subroutines you have in this
-# file.
-#
-# If you want to implement your own backend duplicate this file and make the
-# changes where appropriate - but all subroutines whether they are used or not
-# must stay in the file.
-#
-
-
 # mbz_connect()
 # Make database connection. It will set the global $dbh and it will return it.
 # $g_db_name, $g_db_host, $g_db_port, $g_db_user and $g_db_pass are supplied by settings.pl.
@@ -24,6 +9,8 @@ sub backend_postgresql_connect {
 }
 
 
+# mbz_update_index()
+# @return Always 1.
 sub backend_postgresql_update_index {
 	print $L{'downloadschema'};
 	mbz_download_schema();

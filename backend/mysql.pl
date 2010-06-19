@@ -1,18 +1,3 @@
-#
-# The backend/ directory includes files that follows an interface that allows
-# other database backends to be implemented without the need to alter the core.
-#
-# The file is named as $name$.pl where $name$ is the case-sensitive name for
-# the database backend, this can be anything you like, but the name of the file
-# you choose is very important to the name of the subroutines you have in this
-# file.
-#
-# If you want to implement your own backend duplicate this file and make the
-# changes where appropriate - but all subroutines whether they are used or not
-# must stay in the file.
-#
-
-
 # mbz_connect()
 # Make database connection. It will set the global $dbh and it will return it.
 # $g_db_name, $g_db_host, $g_db_port, $g_db_user and $g_db_pass are supplied by settings.pl.
@@ -21,6 +6,209 @@ sub backend_mysql_connect {
 	$dbh = DBI->connect("dbi:mysql:dbname=$g_db_name;host=$g_db_host;port=$g_db_port",
 						$g_db_user, $g_db_pass);
 	return $dbh;
+}
+
+
+# backend_mysql_create_extra_tables()
+# The mbzdb plugins use a basic key-value table to hold information such as settings.
+# @see mbz_set_key(), mbz_get_key().
+# @return Passthru from $dbh::do().
+sub backend_mysql_create_extra_tables {
+	# no need to if the table already exists
+	return 1 if(mbz_table_exists("kv"));
+
+	$sql = "CREATE TABLE kv (" .
+	       "name varchar(255) not null primary key," .
+	       "value text" .
+	       ")";
+	$sql .= " engine=$g_mysql_engine" if($g_mysql_engine ne '');
+	$sql .= " tablespace $g_tablespace" if($g_tablespace ne "");
+	return mbz_do_sql($sql);
+}
+
+
+# backend_mysql_get_column_type($table_name, $col_name)
+# Get the MySQL column type.
+# @param $table_name The name of the table.
+# @param $col_name The name of the column to fetch the type.
+# @return MySQL column type.
+sub backend_mysql_get_column_type {
+	my ($table_name, $col_name) = @_;
+	
+	my $sth = $dbh->prepare("describe `$table_name`");
+	$sth->execute();
+	while(@result = $sth->fetchrow_array()) {
+		return $result[1] if($result[0] eq $col_name);
+	}
+	
+	return "";
+}
+
+
+# mbz_index_exists($index_name)
+# Check if an index already exists.
+# @param $index_name The name of the index to look for.
+# @return 1 if the index exists, otherwise 0.
+sub backend_mysql_index_exists {
+	my $index_name = $_[0];
+	
+	# yes I know this is a highly inefficent way to do it, but its simple and is only called on
+	# schema changes.
+	my $sth = $dbh->prepare("show tables");
+	$sth->execute();
+	while(@result = $sth->fetchrow_array()) {
+		my $sth2 = $dbh->prepare("show indexes from `$result[0]`");
+		$sth2->execute();
+		while(@result2 = $sth2->fetchrow_array()) {
+			return 1 if($result2[2] eq $index_name);
+		}
+	}
+	
+	# the index was not found
+	return 0;
+}
+
+
+# mbz_load_data()
+# Load the data from the mbdump files into the tables.
+sub backend_mysql_load_data {
+	my $temp_time = time();
+
+	opendir(DIR, "mbdump") || die "Can't open ./mbdump: $!";
+	my @files = sort(grep { $_ ne '.' and $_ ne '..' } readdir(DIR));
+	my $count = @files;
+	my $i = 1;
+
+	foreach my $file (@files) {
+		my $t1 = time();
+		$table = $file;
+		next if($table eq "blank.file" || substr($table, 0, 1) eq '.');
+
+		print "\n" . localtime() . ": Loading data into '$file' ($i of $count)...\n";
+		mbz_do_sql("LOAD DATA LOCAL INFILE 'mbdump/$file' INTO TABLE `$table` ".
+		           "FIELDS TERMINATED BY '\\t' ".
+		           "ENCLOSED BY '' ".
+		           "ESCAPED BY '\\\\' ".
+		           "LINES TERMINATED BY '\\n' ".
+		           "STARTING BY ''");
+
+		my $t2 = time();
+		print "Done (" . mbz_format_time($t2 - $t1) . ")\n";
+		++$i;
+	}
+
+	# clean up
+	closedir(DIR);
+	my $t2 = time();
+	print "\nComplete (" . mbz_format_time($t2 - $temp_time) . ")\n";
+}
+
+
+# mbz_load_pending($id)
+# Load Pending and PendingData from the downaloded replication into the respective tables. This
+# function is different to mbz_load_data that loads the raw mbdump/ whole tables.
+# @param $id The current replication number. See mbz_get_current_replication().
+# @return Always 1.
+sub backend_mysql_load_pending {
+	return 1;
+}
+
+
+# mbz_table_column_exists($table_name, $col_name)
+# Check if a table already has a column.
+# @param $table_name The name of the table to look for.
+# @param $col_name The column name in the table.
+# @return 1 if the table column exists, otherwise 0.
+sub backend_mysql_table_column_exists {
+	my ($table_name, $col_name) = @_;
+	
+	my $sth = $dbh->prepare("describe `$table_name`");
+	$sth->execute();
+	while(@result = $sth->fetchrow_array()) {
+		return 1 if($result[0] eq $col_name);
+	}
+	
+	# table column was not found
+	return 0;
+}
+
+
+# backend_mysql_table_exists($table_name)
+# Check if a table already exists.
+# @param $table_name The name of the table to look for.
+# @return 1 if the table exists, otherwise 0.
+sub backend_mysql_table_exists {
+	my $table_name = $_[0];
+	
+	my $sth = $dbh->prepare('show tables');
+	$sth->execute();
+	while(@result = $sth->fetchrow_array()) {
+		return 1 if($result[0] eq $table_name);
+	}
+	
+	# table was not found
+	return 0;
+}
+
+
+# backend_mysql_update_index()
+# Attemp to pull as much relevant information from CreateIndexes.sql as we can. MySQL does not
+# support function indexes so we will skip those. Any indexes created already on the database will
+# be left intact.
+# @return Always 1.
+sub backend_mysql_update_index {
+	open(SQL, "temp/CreateIndexes.sql");
+	chomp(my @lines = <SQL>);
+	
+	foreach my $line (@lines) {
+		$line = mbz_trim($line);
+		my $pos_index = index($line, 'INDEX ');
+		my $pos_on = index($line, 'ON ');
+		
+		# skip blank lines, comments, psql settings and lines that arn't any use to us.
+		next if($line eq '' || substr($line, 0, 2) eq '--' || substr($line, 0, 1) eq "\\" ||
+		        $pos_index < 0);
+		        
+		# skip function-based indexes.
+		next if($line =~ /.*\(.*\(.*\)\)/);
+		
+		# get the names
+		my $index_name = mbz_trim(substr($line, $pos_index + 6, index($line, ' ', $pos_index + 7) -
+		                       $pos_index - 6));
+		my $table_name = mbz_trim(substr($line, $pos_on + 3, index($line, ' ', $pos_on + 4) -
+		                       $pos_on - 3));
+		my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
+		
+		# PostgreSQL will put double-quotes around some entity names, we have to remove these
+		$index_name = mbz_remove_quotes($index_name);
+		$table_name = mbz_remove_quotes($table_name);
+		
+		# see if the index aleady exists, if so skip
+		next if(mbz_index_exists($index_name));
+		
+		# split and clean column names. this is also a good time to find out there type, if its
+		# TEXT then MySQL requires and index length.
+		my @columns = split(",", $cols);
+		for(my $i = 0; $i < @columns; ++$i) {
+			$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
+			if(backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') {
+				$columns[$i] .= "(32)";
+			}
+		}
+		
+		# now we construct the index back together in case there was changes along the way
+		$new_line = substr($line, 0, $pos_index) . "INDEX `$index_name` ON `$table_name` (";
+		$new_line .= join(",", @columns) . ")";
+		
+		# all looks good so far ... create the index
+		mbz_do_sql($new_line);
+		
+		print "$new_line\n";
+	}
+
+	close(SQL);
+	print "Done\n";
+	return 1;
 }
 
 
@@ -111,181 +299,6 @@ sub backend_mysql_update_schema {
 	}
 	
 	close(SQL);
-	return 1;
-}
-
-
-# backend_mysql_get_column_type($table_name, $col_name)
-# Get the MySQL column type.
-# @param $table_name The name of the table.
-# @param $col_name The name of the column to fetch the type.
-# @return MySQL column type.
-sub backend_mysql_get_column_type {
-	my ($table_name, $col_name) = @_;
-	
-	my $sth = $dbh->prepare("describe `$table_name`");
-	$sth->execute();
-	while(@result = $sth->fetchrow_array()) {
-		return $result[1] if($result[0] eq $col_name);
-	}
-	
-	return "";
-}
-
-
-# backend_mysql_update_index()
-# Attemp to pull as much relevant information from CreateIndexes.sql as we can. MySQL does not
-# support function indexes so we will skip those. Any indexes created already on the database will
-# be left intact.
-# @return Always 1.
-sub backend_mysql_update_index {
-	open(SQL, "temp/CreateIndexes.sql");
-	chomp(my @lines = <SQL>);
-	
-	foreach my $line (@lines) {
-		$line = mbz_trim($line);
-		my $pos_index = index($line, 'INDEX ');
-		my $pos_on = index($line, 'ON ');
-		
-		# skip blank lines, comments, psql settings and lines that arn't any use to us.
-		next if($line eq '' || substr($line, 0, 2) eq '--' || substr($line, 0, 1) eq "\\" ||
-		        $pos_index < 0);
-		        
-		# skip function-based indexes.
-		next if($line =~ /.*\(.*\(.*\)\)/);
-		
-		# get the names
-		my $index_name = mbz_trim(substr($line, $pos_index + 6, index($line, ' ', $pos_index + 7) -
-		                       $pos_index - 6));
-		my $table_name = mbz_trim(substr($line, $pos_on + 3, index($line, ' ', $pos_on + 4) -
-		                       $pos_on - 3));
-		my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
-		
-		# PostgreSQL will put double-quotes around some entity names, we have to remove these
-		$index_name = mbz_remove_quotes($index_name);
-		$table_name = mbz_remove_quotes($table_name);
-		
-		# see if the index aleady exists, if so skip
-		next if(mbz_index_exists($index_name));
-		
-		# split and clean column names. this is also a good time to find out there type, if its
-		# TEXT then MySQL requires and index length.
-		my @columns = split(",", $cols);
-		for(my $i = 0; $i < @columns; ++$i) {
-			$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
-			if(backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') {
-				$columns[$i] .= "(32)";
-			}
-		}
-		
-		# now we construct the index back together in case there was changes along the way
-		$new_line = substr($line, 0, $pos_index) . "INDEX `$index_name` ON `$table_name` (";
-		$new_line .= join(",", @columns) . ")";
-		
-		# all looks good so far ... create the index
-		mbz_do_sql($new_line);
-		
-		print "$new_line\n";
-	}
-
-	close(SQL);
-	print "Done\n";
-	return 1;
-}
-
-
-# backend_mysql_table_exists($table_name)
-# Check if a table already exists.
-# @param $table_name The name of the table to look for.
-# @return 1 if the table exists, otherwise 0.
-sub backend_mysql_table_exists {
-	my $table_name = $_[0];
-	
-	my $sth = $dbh->prepare('show tables');
-	$sth->execute();
-	while(@result = $sth->fetchrow_array()) {
-		return 1 if($result[0] eq $table_name);
-	}
-	
-	# table was not found
-	return 0;
-}
-
-
-# mbz_index_exists($index_name)
-# Check if an index already exists.
-# @param $index_name The name of the index to look for.
-# @return 1 if the index exists, otherwise 0.
-sub backend_mysql_index_exists {
-	my $index_name = $_[0];
-	
-	# yes I know this is a highly inefficent way to do it, but its simple and is only called on
-	# schema changes.
-	my $sth = $dbh->prepare("show tables");
-	$sth->execute();
-	while(@result = $sth->fetchrow_array()) {
-		my $sth2 = $dbh->prepare("show indexes from `$result[0]`");
-		$sth2->execute();
-		while(@result2 = $sth2->fetchrow_array()) {
-			return 1 if($result2[2] eq $index_name);
-		}
-	}
-	
-	# the index was not found
-	return 0;
-}
-
-
-# mbz_table_column_exists($table_name, $col_name)
-# Check if a table already has a column.
-# @param $table_name The name of the table to look for.
-# @param $col_name The column name in the table.
-# @return 1 if the table column exists, otherwise 0.
-sub backend_mysql_table_column_exists {
-	my ($table_name, $col_name) = @_;
-	
-	my $sth = $dbh->prepare("describe `$table_name`");
-	$sth->execute();
-	while(@result = $sth->fetchrow_array()) {
-		return 1 if($result[0] eq $col_name);
-	}
-	
-	# table column was not found
-	return 0;
-}
-
-
-# mbz_load_data()
-# Load the data from the mbdump files into the tables.
-sub backend_mysql_load_data {
-	# TODO: Incomplete.
-}
-
-
-# backend_mysql_create_extra_tables()
-# The mbzdb plugins use a basic key-value table to hold information such as settings.
-# @see mbz_set_key(), mbz_get_key().
-# @return Passthru from $dbh::do().
-sub backend_mysql_create_extra_tables {
-	# no need to if the table already exists
-	return 1 if(mbz_table_exists("kv"));
-
-	$sql = "CREATE TABLE kv (" .
-	       "name varchar(255) not null primary key," .
-	       "value text" .
-	       ")";
-	$sql .= " engine=$g_mysql_engine" if($g_mysql_engine ne '');
-	$sql .= " tablespace $g_tablespace" if($g_tablespace ne "");
-	return mbz_do_sql($sql);
-}
-
-
-# mbz_load_pending($id)
-# Load Pending and PendingData from the downaloded replication into the respective tables. This
-# function is different to mbz_load_data that loads the raw mbdump/ whole tables.
-# @param $id The current replication number. See mbz_get_current_replication().
-# @return Always 1.
-sub backend_mysql_load_pending {
 	return 1;
 }
 
