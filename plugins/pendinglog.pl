@@ -40,15 +40,15 @@ sub pendinglog_beforereplication {
 	my ($repID) = @_;
 	mbz_do_sql(qq|
 		INSERT INTO pendinglog
-		SELECT Pending.SeqId, '$repID',
+		SELECT $g_pending.SeqId, '$repID',
 			substring(TableName from 11 for length(TableName) - 11) as TableName, Op, XID, P1.Data,
 			P2.Data as keyclause
-		FROM Pending
-		LEFT JOIN PendingData as P1 on Pending.SeqId=P1.SeqId and P1.IsKey='f'
-		LEFT JOIN PendingData as P2 on Pending.SeqId=P2.SeqId and P2.IsKey='t'
+		FROM $g_pending
+		LEFT JOIN $g_pendingdata as P1 on $g_pending.SeqId=P1.SeqId and P1.IsKey='f'
+		LEFT JOIN $g_pendingdata as P2 on $g_pending.SeqId=P2.SeqId and P2.IsKey='t'
 	|);
 	mbz_do_sql(qq|
-		UPDATE livestats set val=val+(select count(1) from Pending)
+		UPDATE livestats set val=val+(select count(1) from $g_pending)
 		where name='count.pendinglog'
 	|);
 	return 1;

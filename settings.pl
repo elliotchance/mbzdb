@@ -45,11 +45,10 @@ $g_tablespace = '';
 
 # You may want to ignore certain tables or fields during the replications.
 @g_ignore_tables = (
-	#'release_group_meta', 'release_group', 'release_groupusecount', 'release_groupwords', 'isrc',
-	#'trm', 'trmjoin'
+	# eg. 'trm', 'trmjoin'
 );
 @g_ignore_fields = (
-	#'release_group', 'release_groupusecount', 'trmids'
+	# eg. 'trmids'
 );
 
 # Schema. This is where the SQL scripts to create the schema come from, only edit this if you know
@@ -92,5 +91,13 @@ $g_die_on_plugin = 0;
 #############################
 
 $g_db_port = mbz_get_default_port($g_db_rdbms) if($g_db_port eq 'default');
+
+if($g_use_ngs) {
+	$g_pending = 'dbmirror_Pending';
+	$g_pendingdata = 'dbmirror_PendingData';
+} else {
+	$g_pending = 'Pending';
+	$g_pendingdata = 'PendingData';
+}
 
 return 1;

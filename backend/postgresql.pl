@@ -263,8 +263,8 @@ sub backend_postgresql_load_pending {
 	# load Pending and PendingData
 	print localtime() . ": Loading pending tables... ";
 	
-	open(TABLEDUMP, "replication/$id/mbdump/Pending")
-		or warn("Error: cannot open file 'replication/$id/mbdump/Pending'\n");
+	open(TABLEDUMP, "replication/$id/mbdump/$g_pending")
+		or warn("Error: cannot open file 'replication/$id/mbdump/$g_pending'\n");
 	$dbh->do("COPY $g_pending FROM STDIN");
 	while($readline = <TABLEDUMP>) {
 		$dbh->pg_putcopydata($readline);
@@ -272,8 +272,8 @@ sub backend_postgresql_load_pending {
 	close(TABLEDUMP);
   	$dbh->pg_putcopyend();
   	
-  	open(TABLEDUMP, "replication/$id/mbdump/PendingData")
-  		or warn("Error: cannot open file 'replication/$id/mbdump/PendingData'\n");
+  	open(TABLEDUMP, "replication/$id/mbdump/$g_pendingdata")
+  		or warn("Error: cannot open file 'replication/$id/mbdump/$g_pendingdata'\n");
 	$dbh->do("COPY $g_pendingdata FROM STDIN");
 	while($readline = <TABLEDUMP>) {
 		$dbh->pg_putcopydata($readline);
@@ -289,6 +289,16 @@ sub backend_postgresql_load_pending {
 	}
 	
 	return 1;
+}
+
+
+# mbz_escape_entity($entity)
+# Wnen dealing with table and column names that contain upper and lowercase letters some databases
+# require the table name to be encapsulated.  PostgreSQL uses double-quotes.
+# @return A new encapsulated entity.
+sub backend_mysql_escape_entity {
+	my $entity = $_[0];
+	return "\"$entity\"";
 }
 
 

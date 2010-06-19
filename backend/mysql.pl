@@ -27,6 +27,16 @@ sub backend_mysql_create_extra_tables {
 }
 
 
+# mbz_escape_entity($entity)
+# Wnen dealing with table and column names that contain upper and lowercase letters some databases
+# require the table name to be encapsulated. MySQL uses back-ticks.
+# @return A new encapsulated entity.
+sub backend_mysql_escape_entity {
+	my $entity = $_[0];
+	return "`$entity`";
+}
+
+
 # backend_mysql_get_column_type($table_name, $col_name)
 # Get the MySQL column type.
 # @param $table_name The name of the table.
@@ -110,6 +120,31 @@ sub backend_mysql_load_data {
 # @param $id The current replication number. See mbz_get_current_replication().
 # @return Always 1.
 sub backend_mysql_load_pending {
+	$id = $_[0];
+
+	# make sure there are no pending transactions before cleanup
+	return -1 if(mbz_get_count($g_pending, "") ne '0');
+
+	# perform cleanup (makes sure there no left over records in the PendingData table)
+	$dbh->do("DELETE FROM `$g_pending`");
+
+	# load Pending and PendingData
+	print localtime() . ": Loading pending tables... ";
+	mbz_do_sql(qq|
+		LOAD DATA LOCAL INFILE 'replication/$id/mbdump/$g_pending'
+		INTO TABLE `$g_pending`
+	|);
+	mbz_do_sql(qq|
+		LOAD DATA LOCAL INFILE 'replication/$id/mbdump/$g_pendingdata'
+		INTO TABLE `$g_pendingdata`
+	|);
+	print "Done\n";
+	
+	# PLUGIN_beforereplication()
+	foreach my $plugin (@g_active_plugins) {
+		eval("$plugin" . "_beforereplication($id)") or die($!);
+	}
+	
 	return 1;
 }
 
@@ -192,9 +227,10 @@ sub backend_mysql_update_index {
 		# TEXT then MySQL requires and index length.
 		my @columns = split(",", $cols);
 		for(my $i = 0; $i < @columns; ++$i) {
-			$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
 			if(backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') {
-				$columns[$i] .= "(32)";
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`(32)";
+			} else {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
 			}
 		}
 		
@@ -203,9 +239,8 @@ sub backend_mysql_update_index {
 		$new_line .= join(",", @columns) . ")";
 		
 		# all looks good so far ... create the index
-		mbz_do_sql($new_line);
-		
 		print "$new_line\n";
+		mbz_do_sql($new_line);
 	}
 
 	close(SQL);

@@ -58,6 +58,17 @@ sub backend_NAME_table_exists {
 }
 
 
+# mbz_escape_entity($entity)
+# Wnen dealing with table and column names that contain upper and lowercase letters some databases
+# require the table name to be encapsulated. MySQL uses back-ticks, PostgreSQL uses double-quotes.
+# @param $entity The name of the table or column.
+# @return A new encapsulated entity.
+sub backend_NAME_escape_entity {
+	my $entity = $_[0];
+	return $entity;
+}
+
+
 # mbz_table_column_exists($table_name, $col_name)
 # Check if a table already has a column.
 # @param $table_name The name of the table to look for.

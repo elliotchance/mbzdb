@@ -12,7 +12,8 @@ $f_truncatetables = 0;
 
 require "settings.pl";
 require "languages/$g_language.pl";
-require "functions.pl";
+require "backend/$g_db_rdbms.pl";
+require "src/functions.pl";
 
 # require plugin files
 foreach my $plugin (@g_active_plugins) {

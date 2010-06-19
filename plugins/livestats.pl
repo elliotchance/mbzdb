@@ -70,29 +70,6 @@ sub livestats_init {
 	$sth->execute();
 	$start = time();
 	
-	while(@result = $sth->fetchrow_array()) {
-		if($result[0] ne "livestats") {
-			print "  Counting records for table $result[0]... ";
-			$table = $result[0];
-			$table = "\"$table\"" if($g_db_rdbms eq 'postgresql');
-			$table = "`$table`" if($g_db_rdbms eq 'mysql');
-			
-			# create the key if it doesn't exist
-			$sth2 = $dbh->prepare("select count(1) from livestats where name='count.$result[0]'");
-			$sth2->execute();
-			$key_exists = $sth->fetchrow_array();
-			if($key_exists[0] == 0) {
-				mbz_do_sql("insert into livestats (name, val) values ".
-						   "('count.$result[0]', 0)");
-			}
-			
-			mbz_do_sql("update livestats set val=(select count(1) from $table) ".
-			           "where name='count.$result[0]'");
-			           
-			print "Done\n";
-		}
-	}
-	
 	# default data
 	mbz_do_sql(qq|
 		insert into livestats values
@@ -101,10 +78,32 @@ sub livestats_init {
 		('sql.delete', 0),
 		('count.pendinglog', 0)
 	|);
+	
+	while(@result = $sth->fetchrow_array()) {
+		if($result[0] ne "livestats") {
+			print "  Counting records for table $result[0]... ";
+			$table = $result[0];
+			$table = "\"$table\"" if($g_db_rdbms eq 'postgresql');
+			$table = "`$table`" if($g_db_rdbms eq 'mysql');
+			
+			# create the key if it doesn't exist
+			my $sth2 = $dbh->prepare("select count(1) from livestats where name='count.$result[0]'");
+			$sth2->execute();
+			my @key_exists = $sth2->fetchrow_array();
+			if($key_exists[0] == 0) {
+				mbz_do_sql("insert into livestats (name, val) values ('count.$result[0]', 0)");
+			}
+			
+			mbz_do_sql("update livestats set val=(select count(1) from $table) ".
+			           "where name='count.$result[0]'");
+			           
+			print "Done\n";
+		}
+	}
 	           
 	# TODO: The name of the pending tables depends on if this is NGS or not, there should be extra
 	#       options in settings.pl or builtins.pl to configure these table names.
-	mbz_do_sql("update livestats set val=0 where name='Pending' or name='PendingData'");
+	mbz_do_sql("update livestats set val=0 where name='$g_pending' or name='$g_pendingdata'");
 	
 	return 1;
 }

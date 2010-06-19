@@ -149,6 +149,17 @@ sub mbz_download_schema {
 }
 
 
+# mbz_escape_entity()
+# This subroutine is just a controller that redirects to the escape entity for the RDBMS we are
+# using.
+# @return Passthru from backend_DB_escape_entity().
+sub mbz_escape_entity {
+	# use the subroutine appropriate for the RDBMS
+	my $entity = $_[0];
+	return eval("backend_$g_db_rdbms" . "_escape_entity(\"$entity\");");
+}
+
+
 # mbz_first_boot()
 # We currently don't need this but may in the future. It is called by init.pl the first time init.pl
 # is run.
@@ -185,9 +196,10 @@ sub mbz_format_time {
 # @return SQL count() result.
 sub mbz_get_count {
 	my ($table_name, $extra) = @_;
+	$table_name = mbz_escape_entity($table_name);
 	my $q = $dbh->prepare("select count(1) as count from $table_name $extra");
 	$q->execute();
-	return $rep_total->fetchrow_hashref()->{'count'};
+	return $q->fetchrow_hashref()->{'count'};
 }
 
 
@@ -271,7 +283,8 @@ sub mbz_load_data {
 # @return Passthru from backend_DB_load_pending().
 sub mbz_load_pending {
 	# use the subroutine appropriate for the RDBMS
-	return eval("backend_$g_db_rdbms" . "_load_pending();");
+	my $id = $_[0];
+	return eval("backend_$g_db_rdbms" . "_load_pending(\"$id\");");
 }
 
 
@@ -290,7 +303,7 @@ sub mbz_map_kv {
 	foreach my $k (keys(%$data)) {
 		$r .= $join if(!$first);
 		$first = 0 if($first);
-		$r .= "\"$k\"=" . $dbh->quote($data->{$k});
+		$r .= mbz_escape_entity($k) . "=" . $dbh->quote($data->{$k});
 	}
 	
 	return $r;
@@ -314,7 +327,7 @@ sub mbz_map_values {
 	foreach my $k (keys(%$data)) {
 		$r .= ',' if(!$first);
 		$first = 0 if($first);
-		$r .= "\"$k\"";
+		$r .= mbz_escape_entity($k);
 	}
 	
 	$r .= ") values (";
@@ -499,9 +512,14 @@ sub mbz_round {
 #       inderpendantly in case the user is not using the InnoDB storage engine with MySQL.
 # @return Always 1.
 sub mbz_run_transactions {
-	my $rep_handle = $dbh->prepare("select * from $g_pending left join $g_pendingdata ".
-		"on $g_pending.\"SeqId\"=$g_pendingdata.\"SeqId\" ".
-		"order by $g_pending.\"SeqId\", \"IsKey\" desc");
+	my $pending = mbz_escape_entity($g_pending);
+	my $pendingdata = mbz_escape_entity($g_pendingdata);
+
+	my $rep_handle = $dbh->prepare(qq|
+		SELECT * from $pending
+		LEFT JOIN $pendingdata ON $pending.SeqId=$pendingdata.SeqId
+		ORDER BY $pending.SeqId, IsKey desc
+	|);
 	$rep_handle->execute();
 	my $totalreps = mbz_get_count($g_pending);
 	$starttime = time() - 1;
@@ -513,20 +531,23 @@ sub mbz_run_transactions {
 		my $tableName = substr($rep_row[1], 10, length($rep_row[1]) - 11);
 		if(mbz_in_array(\@g_ignore_tables, $tableName)) {
 			++$rows if($rep_row[5] eq '0' || $rep_row[2] eq 'd');
-			mbz_do_sql("DELETE FROM $g_pending WHERE \"SeqId\"='$rep_row[0]'");
-			mbz_do_sql("DELETE FROM $g_pendingdata WHERE \"SeqId\"='$rep_row[0]'");
+			mbz_do_sql("DELETE FROM $pending WHERE SeqId='$rep_row[0]'");
+			mbz_do_sql("DELETE FROM $pendingdata WHERE SeqId='$rep_row[0]'");
 			next;
 		}
 	
-		$key = mbz_unpack_data($rep_row[6]) if($rep_row[5] eq '1');
-		if($rep_row[5] eq '0' || $rep_row[2] eq 'd') {
+		# we use '1' and 't' for MySQL and PostgreSQL
+		$key = mbz_unpack_data($rep_row[6]) if($rep_row[5] eq '1' or $rep_row[5] eq 't');
+		
+		# we use '0' and 'f' for MySQL and PostgreSQL
+		if(($rep_row[5] eq '0' || $rep_row[5] eq 'f') || $rep_row[2] eq 'd') {
 			$data = mbz_unpack_data($rep_row[6]);
 			
 			# build replicated SQL
 			my $sql = "insert into ";
 			$sql = "update " if($rep_row[2] eq 'u');
 			$sql = "delete from " if($rep_row[2] eq 'd');
-			$sql .= "\"$tableName\" ";
+			$sql .= mbz_escape_entity($tableName) . " ";
 			if($rep_row[2] eq 'i') {
 				$sql .= mbz_map_values($data, ',');
 			} elsif($rep_row[2] eq 'u') {
@@ -558,8 +579,8 @@ sub mbz_run_transactions {
 			}
 			
 			# clear for next round
-			mbz_do_sql("DELETE FROM $g_pending WHERE \"SeqId\"='$rep_row[0]'");
-			mbz_do_sql("DELETE FROM $g_pendingdata WHERE \"SeqId\"='$rep_row[0]'");
+			mbz_do_sql("DELETE FROM $pending WHERE SeqId='$rep_row[0]'");
+			mbz_do_sql("DELETE FROM $pendingdata WHERE SeqId='$rep_row[0]'");
 			undef($key);
 			undef($data);
 			++$rows;
@@ -607,7 +628,7 @@ sub mbz_show_update_help {
 	print "                       transactions.\n";
 	print "-p or --onlypending    Only process pending transactions then quit.\n";
 	print "-q or --quiet          Non-verbose. The status of each statement is not printed.\n";
-	print "-t or --truncate       Force TRUNCATE on Pending and PendindData tables.\n";
+	print "-t or --truncate       Force TRUNCATE on $g_pending and $g_pendingdata tables.\n";
 	
 	return 1;
 }
