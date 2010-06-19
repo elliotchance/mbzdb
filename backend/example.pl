@@ -45,6 +45,8 @@ sub backend_NAME_update_index {
 
 # mbz_table_exists($table_name)
 # Check if a table already exists.
+# @note This must support searching for VIEWs as well. mbz_table_exists() is used for testing if
+#       tables and views exist.
 # @param $table_name The name of the table to look for.
 # @return 1 if the table exists, otherwise 0.
 sub backend_NAME_table_exists {

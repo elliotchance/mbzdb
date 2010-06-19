@@ -1,62 +1,92 @@
 #
-# LiveStats keeps a live count of the table sizes. This is important because InnoDB
-# is transactional and count(*) requires an expensive full table scan.
+# LiveStats keeps a live count of the table sizes. This is important for any transactional database
+# like InnoDB, PostgreSQL etc because count(*) requires an expensive full table scan.
 #
 # SEE example.pl FOR DOCUMENTATION
 #
 
 sub livestats_description {
-	return "LiveStats keeps a live count of the table sizes. This is\n"
-	     . "important because InnoDB is transactional and count(*)\n"
-	     . "requires an expensive full table scan."
+	return "LiveStats keeps a live count of the table sizes. This is\n".
+	       "important because InnoDB is transactional and count(*)\n".
+	       "requires an expensive full table scan."
 }
 
 sub livestats_init {
+	# live stats has many elements that are RDBMS specific, so if the user is using a RDBMS we don't
+	# understand its better to warn and exit
+	if($g_db_rdbms ne 'mysql' and $g_db_rdbms ne 'postgresql') {
+		warn("'$g_db_rdbms' is not supported for livestats.\n\n");
+		return 0;
+	}
+
 	# for PostgreSQL we need to CREATE LANGUAGE
 	if($g_db_rdbms eq 'postgresql') {
 		mbz_do_sql("CREATE LANGUAGE plpgsql");
 	}
 
 	# create tables
-	print "Creating livestats table...";
-	mbz_do_sql("CREATE OR REPLACE FUNCTION update_livestats(newname varchar(255), newval bigint)\n".
-	           "RETURNS VOID AS \$\$\n".
-	           "BEGIN\n".
-	           "    UPDATE livestats SET val = newval WHERE name = newname;\n".
-	           "    IF found THEN\n".
-	           "        RETURN;\n".
-	           "    END IF;\n".
-	           "    INSERT INTO livestats(name, val) VALUES (newname, newval);\n".
-	           "END;".
-	           "\$\$\n".
-	           "LANGUAGE plpgsql;");
-	mbz_do_sql("DROP TABLE livestats cascade");
-	mbz_do_sql("DROP VIEW livestats_count");
-	mbz_do_sql("DROP VIEW livestats_sql");
-	mbz_do_sql("CREATE TABLE livestats (name varchar(255) not null primary key, val bigint)");
-	mbz_do_sql("CREATE VIEW livestats_count as SELECT sum(val) as total FROM livestats WHERE name like 'count.%'");
-	mbz_do_sql("CREATE VIEW livestats_sql as SELECT name, val FROM livestats WHERE name like 'sql.%' ".
-	           "UNION SELECT 'sql.all', sum(val) FROM livestats WHERE name like 'sql.%'");
+	print "Creating livestats tables and views...";
+	if(mbz_table_exists("livestats")) {
+		if($g_db_rdbms eq 'postgresql') {
+			# PostgreSQL requires a cascaded DROP
+			mbz_do_sql("DROP TABLE livestats cascade");
+		} else {
+			# some other generic-SQL like mysql
+			mbz_do_sql("DROP TABLE livestats");
+		}
+	}
+	mbz_do_sql("DROP VIEW livestats_count") if(mbz_table_exists("livestats_count"));
+	mbz_do_sql("DROP VIEW livestats_sql") if(mbz_table_exists("livestats_sql"));
+	
+	# the actual livestats table
+	mbz_do_sql(qq|
+		CREATE TABLE livestats (
+			name varchar(255) not null primary key,
+			val bigint
+		)
+	|);
+	           
+	# a couple of extra views
+	mbz_do_sql(qq|
+		CREATE VIEW livestats_count AS
+		SELECT sum(val) as total FROM livestats WHERE name like 'count.%'
+	|);
+	mbz_do_sql(qq|
+		CREATE VIEW livestats_sql AS
+		SELECT name, val FROM livestats WHERE name like 'sql.%'
+		UNION SELECT 'sql.all', sum(val) FROM livestats WHERE name like 'sql.%'
+	|);
+	           
 	print " Done\n";
 	
 	# count tables
 	if($g_db_rdbms eq 'postgresql') {
-		$sth = $dbh->prepare("select table_name from information_schema.tables where table_schema='public'");
+		$sth = $dbh->prepare("select table_name from information_schema.tables ".
+		                     "where table_schema='public'");
 	}
 	if($g_db_rdbms eq 'mysql') {
 		$sth = $dbh->prepare("show tables");
 	}
 	$sth->execute();
 	$start = time();
+	
 	while(@result = $sth->fetchrow_array()) {
 		if($result[0] ne "livestats") {
 			print "  Counting records for table $result[0]... ";
+			$table = $result[0];
+			$table = "\"$table\"" if($g_db_rdbms eq 'postgresql');
+			$table = "`$table`" if($g_db_rdbms eq 'mysql');
 			
-			# we do a insert then update in case the record alredy exists we make sure the value is
-			# updated
-			mbz_do_sql("insert into livestats (name, val) values ".
-			           "('count.$result[0]', (select count(1) from \"$result[0]\"))");
-			mbz_do_sql("update livestats set val=(select count(1) from \"$result[0]\") ".
+			# create the key if it doesn't exist
+			$sth2 = $dbh->prepare("select count(1) from livestats where name='count.$result[0]'");
+			$sth2->execute();
+			$key_exists = $sth->fetchrow_array();
+			if($key_exists[0] == 0) {
+				mbz_do_sql("insert into livestats (name, val) values ".
+						   "('count.$result[0]', 0)");
+			}
+			
+			mbz_do_sql("update livestats set val=(select count(1) from $table) ".
 			           "where name='count.$result[0]'");
 			           
 			print "Done\n";
@@ -64,7 +94,16 @@ sub livestats_init {
 	}
 	
 	# default data
-	mbz_do_sql("insert into livestats values ('sql.insert', 0), ('sql.update', 0), ('sql.delete', 0), ('count.pendinglog', 0)");
+	mbz_do_sql(qq|
+		insert into livestats values
+		('sql.insert', 0),
+		('sql.update', 0),
+		('sql.delete', 0),
+		('count.pendinglog', 0)
+	|);
+	           
+	# TODO: The name of the pending tables depends on if this is NGS or not, there should be extra
+	#       options in settings.pl or builtins.pl to configure these table names.
 	mbz_do_sql("update livestats set val=0 where name='Pending' or name='PendingData'");
 	
 	return 1;

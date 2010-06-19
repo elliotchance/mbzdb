@@ -135,9 +135,12 @@ sub backend_postgresql_update_schema {
 
 # backend_postgresql_table_exists($tablename)
 # Check if a table already exists.
+# @note This must support searching for VIEWs as well. mbz_table_exists() is used for testing if
+#       tables and views exist.
 # @param $table_name The name of the table to look for.
 # @return 1 if the table exists, otherwise 0.
 sub backend_postgresql_table_exists {
+	# TODO: I don't know if this is checking for views.
 	my $sth = $dbh->prepare("select count(1) as count from information_schema.tables ".
 	                        "where table_name='$_[0]'");
 	$sth->execute();
