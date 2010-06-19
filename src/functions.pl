@@ -137,14 +137,14 @@ sub mbz_download_replication {
 # indexes and PL/pgSQL. It will later be converted for the RDBMS we are using.
 # @return Always 1.
 sub mbz_download_schema {
-	unlink("temp/CreateTables.sql");
-	mbz_download_file($g_schema_url, "temp/CreateTables.sql");
-	unlink("temp/CreateIndexes.sql");
-	mbz_download_file($g_index_url, "temp/CreateIndexes.sql");
-	unlink("temp/CreatePrimaryKeys.sql");
-	mbz_download_file($g_pk_url, "temp/CreatePrimaryKeys.sql");
-	unlink("temp/CreateFunctions.sql");
-	mbz_download_file($g_func_url, "temp/CreateFunctions.sql");
+	unlink("replication/CreateTables.sql");
+	mbz_download_file($g_schema_url, "replication/CreateTables.sql");
+	unlink("replication/CreateIndexes.sql");
+	mbz_download_file($g_index_url, "replication/CreateIndexes.sql");
+	unlink("replication/CreatePrimaryKeys.sql");
+	mbz_download_file($g_pk_url, "replication/CreatePrimaryKeys.sql");
+	unlink("replication/CreateFunctions.sql");
+	mbz_download_file($g_func_url, "replication/CreateFunctions.sql");
 	return 1;
 }
 
@@ -754,11 +754,12 @@ sub mbz_unzip_mbdump {
 	my $file = $_[0];
 	print localtime() . ": Uncompressing $file... ";
 	mkdir("mbdump");
-	system("bunzip2 -f replication/$file");
-	system("tar -xf replication/" . substr($file, 0, length($file) - 4) . " -C replication");
 	if($^O eq "MSWin32") {
 		system("$g_mv replication\\mbdump\\* mbdump >nul");
+		system("bunzip2 -f replication/$file");
+		system("tar -xf replication/" . substr($file, 0, length($file) - 4) . " -C replication");
 	} else {
+		system("tar -xjf replication/$file -C replication");
 		system("$g_mv replication/mbdump/* mbdump");
 	}
 	print "Done\n";
@@ -792,8 +793,12 @@ sub mbz_unzip_replication {
 	my $id = $_[0];
 	print localtime() . ": Uncompressing... ";
 	mkdir("replication/$id");
-	system("bunzip2 -f replication/replication-$id.tar.bz2");
-	system("tar -xf replication/replication-$id.tar -C replication/$id");
+	if($^O eq "MSWin32") {
+		system("bunzip2 -f replication/replication-$id.tar.bz2");
+		system("tar -xf replication/replication-$id.tar -C replication/$id");
+	} else {
+		system("tar -xjf replication/replication-$id.tar.bz2 -C replication/$id");
+	}
 	print "Done\n";
 	return 1;
 }

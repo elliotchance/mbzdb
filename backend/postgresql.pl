@@ -24,7 +24,7 @@ sub backend_postgresql_update_index {
 		mbz_do_sql("CREATE LANGUAGE plpgsql");
 	}
 	
-	open(SQL, "temp/CreateFunctions.sql");
+	open(SQL, "replication/CreateFunctions.sql");
 	chomp(my @lines = <SQL>);
 	my $full = "";
 	foreach my $line (@lines) {
@@ -40,7 +40,7 @@ sub backend_postgresql_update_index {
 	}
 	close(SQL);
 	
-	open(SQL, "temp/CreateIndexes.sql");
+	open(SQL, "replication/CreateIndexes.sql");
 	chomp(my @lines = <SQL>);
 	foreach my $line (@lines) {
 		# skip blank lines and single bracket lines
@@ -52,7 +52,7 @@ sub backend_postgresql_update_index {
 	}
 	close(SQL);
 	
-	open(SQL, "temp/CreatePrimaryKeys.sql");
+	open(SQL, "replication/CreatePrimaryKeys.sql");
 	chomp(my @lines = <SQL>);
 	foreach my $line (@lines) {
 		# skip blank lines and single bracket lines
@@ -80,7 +80,7 @@ sub backend_postgresql_update_index {
 # to create (and replace) them. This is just so all the error messages and so nasty.
 # @return Always 1.
 sub backend_postgresql_update_schema {
-	open(SQL, "temp/CreateTables.sql");
+	open(SQL, "replication/CreateTables.sql");
 	chomp(my @lines = <SQL>);
 	my $table = "";
 	foreach my $line (@lines) {

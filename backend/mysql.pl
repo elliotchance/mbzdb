@@ -194,7 +194,12 @@ sub backend_mysql_table_exists {
 # be left intact.
 # @return Always 1.
 sub backend_mysql_update_index {
-	open(SQL, "temp/CreateIndexes.sql");
+	# TODO: It is not indexing 'id' columns of the tables, this might be because the CREATE TABLEs
+	#       contains SERIAL type, this will need to be fixed. One method is to search for SERIAL
+	#       columns in CreateTables.sql or simply look for all the 'id' columns and create indexes
+	#       on them.
+	
+	open(SQL, "replication/CreateIndexes.sql");
 	chomp(my @lines = <SQL>);
 	
 	foreach my $line (@lines) {
@@ -268,7 +273,7 @@ sub backend_mysql_update_schema {
 	
 	# this is where it has to translate PostgreSQL to MySQL as well as making any modifications
 	# needed.
-	open(SQL, "temp/CreateTables.sql");
+	open(SQL, "replication/CreateTables.sql");
 	chomp(my @lines = <SQL>);
 	my $table = "";
 	foreach my $line (@lines) {
