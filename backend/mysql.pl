@@ -194,11 +194,6 @@ sub backend_mysql_table_exists {
 # be left intact.
 # @return Always 1.
 sub backend_mysql_update_index {
-	# TODO: It is not indexing 'id' columns of the tables, this might be because the CREATE TABLEs
-	#       contains SERIAL type, this will need to be fixed. One method is to search for SERIAL
-	#       columns in CreateTables.sql or simply look for all the 'id' columns and create indexes
-	#       on them.
-	
 	open(SQL, "replication/CreateIndexes.sql");
 	chomp(my @lines = <SQL>);
 	
@@ -247,8 +242,25 @@ sub backend_mysql_update_index {
 		print "$new_line\n";
 		mbz_do_sql($new_line);
 	}
-
 	close(SQL);
+	
+	# the second phase is to add indexing for what PostgreSQL would of originally defined as SERIAL
+	# columns. We can't guarantee that given any column called 'id' will be unique (even through
+	# that's likely) so we create normal indexes on them
+	my $q = $dbh->prepare("show tables");
+	$q->execute();
+	while(@r = $q->fetchrow_array()) {
+		my $q2 = $dbh->prepare("describe `$r[0]`");
+		$q2->execute();
+		while(@r2 = $q2->fetchrow_array()) {
+			if($r2[0] eq 'id' && !mbz_index_exists("$r[0]_$r2[0]_idx")) {
+				$sql = "CREATE INDEX `$r[0]_$r2[0]_idx` ON `$r[0]` (`$r2[0]`)";
+				print "$sql\n";
+				mbz_do_sql($sql);
+			}
+		}
+	}
+	
 	print "Done\n";
 	return 1;
 }

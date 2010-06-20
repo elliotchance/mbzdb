@@ -410,11 +410,10 @@ sub mbz_raw_download {
 		}
 		
 		@files = (
-			# TODO: turn this back on when finished testing.
-			#'mbdump-artistrelation.tar.bz2',
-			#'mbdump-derived.tar.bz2',
+			'mbdump-artistrelation.tar.bz2',
+			'mbdump-derived.tar.bz2',
 			'mbdump-stats.tar.bz2',
-			#'mbdump.tar.bz2'
+			'mbdump.tar.bz2'
 		);
 	}
 	
@@ -530,7 +529,7 @@ sub mbz_run_transactions {
 		# next if we are ignoring this table
 		my $tableName = substr($rep_row[1], 10, length($rep_row[1]) - 11);
 		if(mbz_in_array(\@g_ignore_tables, $tableName)) {
-			++$rows if($rep_row[5] eq '0' || $rep_row[2] eq 'd');
+			++$rows if(($rep_row[5] eq '0' || $rep_row[5] eq 'f') || $rep_row[2] eq 'd');
 			mbz_do_sql("DELETE FROM $pending WHERE SeqId='$rep_row[0]'");
 			mbz_do_sql("DELETE FROM $pendingdata WHERE SeqId='$rep_row[0]'");
 			next;
@@ -544,9 +543,9 @@ sub mbz_run_transactions {
 			$data = mbz_unpack_data($rep_row[6]);
 			
 			# build replicated SQL
-			my $sql = "insert into ";
-			$sql = "update " if($rep_row[2] eq 'u');
-			$sql = "delete from " if($rep_row[2] eq 'd');
+			my $sql = "INSERT INTO ";
+			$sql = "UPDATE " if($rep_row[2] eq 'u');
+			$sql = "DELETE FROM " if($rep_row[2] eq 'd');
 			$sql .= mbz_escape_entity($tableName) . " ";
 			if($rep_row[2] eq 'i') {
 				$sql .= mbz_map_values($data, ',');

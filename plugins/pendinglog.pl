@@ -38,6 +38,7 @@ sub pendinglog_init {
 
 sub pendinglog_beforereplication {
 	my ($repID) = @_;
+	
 	mbz_do_sql(qq|
 		INSERT INTO pendinglog
 		SELECT $g_pending.SeqId, '$repID',

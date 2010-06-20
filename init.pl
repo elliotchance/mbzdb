@@ -5,6 +5,16 @@ require "languages/$g_language.pl";
 require "backend/$g_db_rdbms.pl";
 require "src/functions.pl";
 
+# TODO: There is an issue with some of the CREATE UNIQUE INDEXs on table columns that are not unique
+#       name                               (select count(1) - count(distinct ?) from ?)
+#       artistalias_nameindex              20 duplicates
+#       url_idx_url                        75 duplicates
+#       wordlist_wordindex                 30 duplicates
+#
+#       This has only been tested against non-NGS. The non-NGS schema comes from an old version from
+#       the git repository which means this can't be fixed. However everyone that can should move to
+#       using the NGS schema where any unique issues can be fixed by updating the git repository.
+
 # first boot
 mbz_choose_language() if(!$g_chosenlanguage);
 mbz_first_boot() if($g_firstboot);

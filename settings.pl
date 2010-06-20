@@ -51,6 +51,17 @@ $g_tablespace = '';
 	# eg. 'trmids'
 );
 
+# there are some SQL inconsistencies when using non-NGS
+if(!$g_use_ngs) {
+	push(@g_ignore_tables, 'release_group');
+	push(@g_ignore_tables, 'release_group_meta');
+	push(@g_ignore_tables, 'release_groupwords');
+	push(@g_ignore_tables, 'isrc');
+	
+	push(@g_ignore_fields, 'release_group');
+	push(@g_ignore_fields, 'release_groupusecount');
+}
+
 # Schema. This is where the SQL scripts to create the schema come from, only edit this if you know
 # what you're doing.
 $schema_base = 'http://git.musicbrainz.org/gitweb/?p=musicbrainz-server/core.git;a=blob_plain';
