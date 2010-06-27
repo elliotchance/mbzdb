@@ -755,8 +755,8 @@ sub mbz_unzip_mbdump {
 	mkdir("mbdump");
 	if($^O eq "MSWin32") {
 		system("$g_mv replication\\mbdump\\* mbdump >nul");
-		system("bunzip2 -f replication/$file");
-		system("tar -xf replication/" . substr($file, 0, length($file) - 4) . " -C replication");
+		system("bin\\bunzip2 -f replication/$file");
+		system("bin\\tar -xf replication/" . substr($file, 0, length($file) - 4) . " -C replication");
 	} else {
 		system("tar -xjf replication/$file -C replication");
 		system("$g_mv replication/mbdump/* mbdump");
@@ -793,8 +793,8 @@ sub mbz_unzip_replication {
 	print localtime() . ": Uncompressing... ";
 	mkdir("replication/$id");
 	if($^O eq "MSWin32") {
-		system("bunzip2 -f replication/replication-$id.tar.bz2");
-		system("tar -xf replication/replication-$id.tar -C replication/$id");
+		system("bin\\bunzip2 -f replication/replication-$id.tar.bz2");
+		system("bin\\tar -xf replication/replication-$id.tar -C replication/$id");
 	} else {
 		system("tar -xjf replication/replication-$id.tar.bz2 -C replication/$id");
 	}
