@@ -5,6 +5,8 @@ require "languages/$g_language.pl";
 require "backend/$g_db_rdbms.pl";
 require "src/functions.pl";
 
+mbz_create_folders();
+
 # TODO: There is an issue with some of the CREATE UNIQUE INDEXs on table columns that are not unique
 #       name                               (select count(1) - count(distinct ?) from ?)
 #       artistalias_nameindex              20 duplicates
