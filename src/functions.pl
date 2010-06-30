@@ -145,6 +145,8 @@ sub mbz_download_schema {
 	mbz_download_file($g_pk_url, "replication/CreatePrimaryKeys.sql");
 	unlink("replication/CreateFunctions.sql");
 	mbz_download_file($g_func_url, "replication/CreateFunctions.sql");
+	unlink("replication/ReplicationSetup.sql");
+	mbz_download_file($g_pending_url, "replication/ReplicationSetup.sql");
 	return 1;
 }
 
@@ -386,19 +388,18 @@ sub mbz_raw_download {
 				or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
 				
 		my @files = (
-			# TODO: turn this back on when finished testing.
-			#'mbdump-derived.tar.bz2',
-			'mbdump-stats.tar.bz2'
-			#'mbdump.tar.bz2'
+			'mbdump-derived.tar.bz2',
+			'mbdump-stats.tar.bz2',
+			'mbdump.tar.bz2'
 		);
 	} else {
 		# find out the latest fullexport
 		my $latest = "";
 		$ftp = Net::FTP->new('ftp.musicbrainz.org', Timeout => 60)
 			or die "Cannot contact ftp.musicbrainz.org: $!";
-		$ftp->login('anonymous') or die "Can't login (ftp.musicbrainz.org): " . $ftp->message;
+		$ftp->login('anonymous') or die("Can't login (ftp.musicbrainz.org): " . $ftp->message);
 		$ftp->cwd('/pub/musicbrainz/data/fullexport/')
-			or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
+			or die("Can't change directory (ftp.musicbrainz.org): " . $ftp->message);
 		my @ls = $ftp->ls('-lR');
 		foreach my $l (@ls) {
 			if(index($l, 'latest-is-') >= 0) {
@@ -527,13 +528,21 @@ sub mbz_run_transactions {
 	my ($key, $data);
 	for(my $rows = 1; @rep_row = $rep_handle->fetchrow_array(); ) {
 		# next if we are ignoring this table
-		my $tableName = substr($rep_row[1], 10, length($rep_row[1]) - 11);
+		my $tableName = "";
+		if($g_use_ngs) {
+			$tableName = substr($rep_row[1], 15, length($rep_row[1]) - 16);
+		} else {
+			$tableName = substr($rep_row[1], 10, length($rep_row[1]) - 11);
+		}
 		if(mbz_in_array(\@g_ignore_tables, $tableName)) {
 			++$rows if(($rep_row[5] eq '0' || $rep_row[5] eq 'f') || $rep_row[2] eq 'd');
 			mbz_do_sql("DELETE FROM $pending WHERE SeqId='$rep_row[0]'");
 			mbz_do_sql("DELETE FROM $pendingdata WHERE SeqId='$rep_row[0]'");
 			next;
 		}
+		
+		# also ignore any table that starts with "nz"
+		next if(substr($tableName, 0, 2) eq "nz");
 	
 		# we use '1' and 't' for MySQL and PostgreSQL
 		$key = mbz_unpack_data($rep_row[6]) if($rep_row[5] eq '1' or $rep_row[5] eq 't');

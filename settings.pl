@@ -16,10 +16,10 @@ $g_db_user = 'root';
 $g_db_pass = 'abcd1234';
 
 # The name of the database to use.
-$g_db_name = 'mbzdb_old';
+$g_db_name = 'mbzdb_ngs';
 
 # Use NGS (Next Generation Schema)?
-$g_use_ngs = 0;
+$g_use_ngs = 1;
 
 
 #############################
@@ -70,10 +70,11 @@ $g_schema_url = "$schema_base;f=admin/sql/CreateTables.sql;hb=$hb";
 $g_index_url = "$schema_base;f=admin/sql/CreateIndexes.sql;hb=$hb";
 $g_pk_url = "$schema_base;f=admin/sql/CreatePrimaryKeys.sql;hb=$hb";
 $g_func_url = "$schema_base;f=admin/sql/CreateFunctions.sql;hb=$hb";
+$g_pending_url = "$schema_base;f=admin/sql/ReplicationSetup.sql;hb=$hb";
 
 # Replications URLs
-# TODO: add the URLs for NGS when they are available.
 if($g_use_ngs) {
+	$g_rep_url = "http://test.musicbrainz.org:82/pub/musicbrainz/data/replication";
 } else {
 	$g_rep_url = "ftp://ftp.musicbrainz.org/pub/musicbrainz/data/replication";
 }
@@ -106,9 +107,13 @@ $g_db_port = mbz_get_default_port($g_db_rdbms) if($g_db_port eq 'default');
 if($g_use_ngs) {
 	$g_pending = 'dbmirror_Pending';
 	$g_pendingdata = 'dbmirror_PendingData';
+	$g_pendingfile = 'dbmirror_pending';
+	$g_pendingdatafile = 'dbmirror_pendingdata';
 } else {
 	$g_pending = 'Pending';
 	$g_pendingdata = 'PendingData';
+	$g_pendingfile = 'Pending';
+	$g_pendingdatafile = 'PendingData';
 }
 
 return 1;
