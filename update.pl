@@ -15,6 +15,8 @@ require "languages/$g_language.pl";
 require "backend/$g_db_rdbms.pl";
 require "src/functions.pl";
 
+mbz_create_folders();
+
 # require plugin files
 foreach my $plugin (@g_active_plugins) {
 	require "plugins/$plugin.pl";
