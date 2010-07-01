@@ -387,7 +387,7 @@ sub mbz_raw_download {
 		$ftp->cwd("/pub/musicbrainz/data/ngs/$latest")
 				or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
 				
-		my @files = (
+		@files = (
 			'mbdump-derived.tar.bz2',
 			'mbdump-stats.tar.bz2',
 			'mbdump.tar.bz2'
