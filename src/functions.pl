@@ -601,9 +601,15 @@ sub mbz_run_transactions {
 	}
 	
 	# Clean up. Remove old replication
-	system("$g_rm -f replication/replication-$currep.tar.bz2");
-	system("$g_rm -f replication/replication-$currep.tar");
-	system("$g_rm -f -r replication/$currep");
+	if($^O eq "MSWin32") {
+		system("del \"replication/replication-$currep.tar.bz2\"");
+		system("del \"replication/replication-$currep.tar\"");
+		system("rmdir /s /y \"replication/$currep\"");
+	} else {
+		system("$g_rm -f \"replication/replication-$currep.tar.bz2\"");
+		system("$g_rm -f \"replication/replication-$currep.tar\"");
+		system("$g_rm -f -r \"replication/$currep\"");
+	}
 	
 	return 1;
 }
