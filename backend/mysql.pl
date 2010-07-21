@@ -309,7 +309,7 @@ sub backend_mysql_update_schema_from_file {
 					$parts[$i] = "TEXT";
 				}
 				$parts[$i] = "INT NOT NULL" if(uc(substr($parts[$i], 0, 6)) eq "SERIAL");
-				$parts[$i] = "CHAR(32)" if(uc(substr($parts[$i], 0, 4)) eq "UUID");
+				$parts[$i] = "CHAR(36)" if(uc(substr($parts[$i], 0, 4)) eq "UUID");
 				$parts[$i] = "TEXT" if(uc(substr($parts[$i], 0, 4)) eq "CUBE");
 				$parts[$i] = "CHAR(1)" if(uc(substr($parts[$i], 0, 4)) eq "BOOL");
 				#$parts[$i] = "VARCHAR(256)" if(uc($parts[$i]) eq "NAME");
