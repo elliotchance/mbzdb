@@ -240,7 +240,13 @@ sub backend_mysql_update_index {
 		
 		# all looks good so far ... create the index
 		print "$new_line\n";
-		mbz_do_sql($new_line);
+		my $success = mbz_do_sql($new_line);
+		
+		# if the index fails we will run it again as non-unique
+		if(!$success) {
+			$new_line =~ s/UNIQUE//;
+			mbz_do_sql($new_line);
+		}
 	}
 	close(SQL);
 	
