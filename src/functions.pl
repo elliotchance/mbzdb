@@ -8,6 +8,10 @@ use Net::FTP;
 mbz_connect();
 
 
+# TODO:
+# ALTER TABLE  `artist_name` CHANGE  `name`  `name` TEXT CHARACTER SET latin1 COLLATE latin1_general_cs NOT NULL
+
+
 # mbz_check_new_schema($id)
 # Check if the SCHEMA_SEQUENCE matches $id, if it doesnt this means the schema has changed and we
 # need to go download the latest schema and alter the database accordingly.
@@ -543,6 +547,9 @@ sub mbz_run_transactions {
 		
 		# also ignore any table that starts with "nz"
 		next if(substr($tableName, 0, 2) eq "nz");
+		
+		# rename sanitised tables
+		$tableName = "release_meta" if($tableName eq "release_meta_sanitised");
 	
 		# we use '1' and 't' for MySQL and PostgreSQL
 		$key = mbz_unpack_data($rep_row[6]) if($rep_row[5] eq '1' or $rep_row[5] eq 't');
