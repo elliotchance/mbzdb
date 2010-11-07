@@ -64,7 +64,7 @@ if(!$g_use_ngs) {
 
 # Schema. This is where the SQL scripts to create the schema come from, only edit this if you know
 # what you're doing.
-$schema_base = 'http://git.musicbrainz.org/gitweb/?p=musicbrainz-server/core.git;a=blob_plain';
+$schema_base = 'http://git.musicbrainz.org/gitweb/?p=musicbrainz-server.git;a=blob_plain';
 $hb = ($g_use_ngs ? 'master' : '6b70f50c57401fc07140dcbb242550b7e5ebfa31');
 $g_schema_url = "$schema_base;f=admin/sql/CreateTables.sql;hb=$hb";
 $g_index_url = "$schema_base;f=admin/sql/CreateIndexes.sql;hb=$hb";
