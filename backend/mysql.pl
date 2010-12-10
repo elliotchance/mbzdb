@@ -1,10 +1,16 @@
+use DBI;
+use DBD::mysql;
+
 # mbz_connect()
 # Make database connection. It will set the global $dbh and it will return it.
 # $g_db_name, $g_db_host, $g_db_port, $g_db_user and $g_db_pass are supplied by settings.pl.
 # @return $dbh
 sub backend_mysql_connect {
-	$dbh = DBI->connect("dbi:mysql:dbname=$g_db_name;host=$g_db_host;port=$g_db_port",
+	$dbh = DBI->connect("dbi:mysql:dbname=$g_db_name;host=$g_db_host;port=$g_db_port;mysql_local_infile=1;",
 						$g_db_user, $g_db_pass);
+
+	$dbh || die 'Unable to connect to the database: ' . $DBI::errstr;
+
 	return $dbh;
 }
 

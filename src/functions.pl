@@ -104,7 +104,12 @@ sub mbz_download_file {
 	my $ua = LWP::UserAgent->new();
 	my $request = HTTP::Request->new('GET', $_[0]);
 	my $resp = $ua->request($request, $_[1]);
-	return $resp;
+
+    if( $resp->is_success ) {
+        return $resp;
+    } else {
+        die 'Error downloading ' . $_[0] . ': ' . $resp->status_line;
+	}
 }
 
 
