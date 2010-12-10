@@ -296,7 +296,7 @@ sub backend_postgresql_load_pending {
 # Wnen dealing with table and column names that contain upper and lowercase letters some databases
 # require the table name to be encapsulated.  PostgreSQL uses double-quotes.
 # @return A new encapsulated entity.
-sub backend_mysql_escape_entity {
+sub backend_postgresql_escape_entity {
 	my $entity = $_[0];
 	return "\"$entity\"";
 }
