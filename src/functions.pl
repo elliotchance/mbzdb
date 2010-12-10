@@ -91,7 +91,9 @@ sub mbz_create_extra_tables {
 # @param $sql The SQL statement to be executed.
 # @return Passthru from $dbh::do().
 sub mbz_do_sql {
-	return $dbh->do($_[0]) or mbz_sql_error($dbh->errstr, $_[0]);
+	my $result = $dbh->do($_[0]);
+	$result or mbz_sql_error($dbh->errstr, $_[0]) if($_[1] ne 'nodie');
+	return $result;
 }
 
 
@@ -521,11 +523,13 @@ sub mbz_round {
 sub mbz_run_transactions {
 	my $pending = mbz_escape_entity($g_pending);
 	my $pendingdata = mbz_escape_entity($g_pendingdata);
+	my $seqid = mbz_escape_entity("SeqId");
+	my $iskey = mbz_escape_entity("IsKey");
 
 	my $rep_handle = $dbh->prepare(qq|
 		SELECT * from $pending
-		LEFT JOIN $pendingdata ON $pending.SeqId=$pendingdata.SeqId
-		ORDER BY $pending.SeqId, IsKey desc
+		LEFT JOIN $pendingdata ON $pending.$seqid=$pendingdata.$seqid
+		ORDER BY $pending.$seqid, $iskey desc
 	|);
 	$rep_handle->execute();
 	my $totalreps = mbz_get_count($g_pending);
@@ -535,16 +539,13 @@ sub mbz_run_transactions {
 	my ($key, $data);
 	for(my $rows = 1; @rep_row = $rep_handle->fetchrow_array(); ) {
 		# next if we are ignoring this table
-		my $tableName = "";
-		if($g_use_ngs) {
-			$tableName = substr($rep_row[1], 15, length($rep_row[1]) - 16);
-		} else {
-			$tableName = substr($rep_row[1], 10, length($rep_row[1]) - 11);
-		}
+		my $pos = index($rep_row[1], '.');
+		my $tableName = substr($rep_row[1], $pos + 2, length($rep_row[1]) - $pos - 3);
+		
 		if(mbz_in_array(\@g_ignore_tables, $tableName)) {
 			++$rows if(($rep_row[5] eq '0' || $rep_row[5] eq 'f') || $rep_row[2] eq 'd');
-			mbz_do_sql("DELETE FROM $pending WHERE SeqId='$rep_row[0]'");
-			mbz_do_sql("DELETE FROM $pendingdata WHERE SeqId='$rep_row[0]'");
+			mbz_do_sql("DELETE FROM $pending WHERE $seqid='$rep_row[0]'");
+			mbz_do_sql("DELETE FROM $pendingdata WHERE $seqid='$rep_row[0]'");
 			next;
 		}
 		
@@ -597,8 +598,8 @@ sub mbz_run_transactions {
 			}
 			
 			# clear for next round
-			mbz_do_sql("DELETE FROM $pending WHERE SeqId='$rep_row[0]'");
-			mbz_do_sql("DELETE FROM $pendingdata WHERE SeqId='$rep_row[0]'");
+			mbz_do_sql("DELETE FROM $pending WHERE $seqid='$rep_row[0]'");
+			mbz_do_sql("DELETE FROM $pendingdata WHERE $seqid='$rep_row[0]'");
 			undef($key);
 			undef($data);
 			++$rows;

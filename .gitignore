@@ -4,5 +4,4 @@ cloc.pl
 sloc.sh
 mbdump*
 replication/*
-settings.pl
-src/firstboot.pl
+._*

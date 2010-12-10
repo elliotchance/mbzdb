@@ -20,9 +20,7 @@ sub livestats_init {
 	}
 
 	# for PostgreSQL we need to CREATE LANGUAGE
-	if($g_db_rdbms eq 'postgresql') {
-		mbz_do_sql("CREATE LANGUAGE plpgsql");
-	}
+	backend_postgresql_create_plpgsql() if($g_db_rdbms eq 'postgresql');
 
 	# create tables
 	print "Creating livestats tables and views...";
@@ -82,9 +80,7 @@ sub livestats_init {
 	while(@result = $sth->fetchrow_array()) {
 		if($result[0] ne "livestats") {
 			print "  Counting records for table $result[0]... ";
-			$table = $result[0];
-			$table = "\"$table\"" if($g_db_rdbms eq 'postgresql');
-			$table = "`$table`" if($g_db_rdbms eq 'mysql');
+			$table = mbz_escape_entity($result[0]);
 			
 			# create the key if it doesn't exist
 			my $sth2 = $dbh->prepare("select count(1) from livestats where name='count.$result[0]'");

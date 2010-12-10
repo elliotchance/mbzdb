@@ -20,21 +20,22 @@ sub backend_postgresql_update_index {
 	# language or functions fail they will ultimatly be skipped.
 	
 	# for PostgreSQL we need to try CREATE LANGUAGE
-	if($g_db_rdbms eq 'postgresql') {
-		mbz_do_sql("CREATE LANGUAGE plpgsql");
-	}
+	backend_postgresql_create_plpgsql() if($g_db_rdbms eq 'postgresql');
 	
 	open(SQL, "replication/CreateFunctions.sql");
 	chomp(my @lines = <SQL>);
 	my $full = "";
 	foreach my $line (@lines) {
 		# skip blank lines and single bracket lines
-		next if($line eq "" || substr($line, 0, 2) eq "--" || substr($line, 0, 1) eq "\\");
+		next if($line eq "" || substr($line, 0, 2) eq "--" || substr($line, 0, 1) eq "\\" ||
+		        $line eq "BEGIN;" || $line eq "COMMIT;");
 		
 		$full .= "$line\n";
 		if(index($line, 'plpgsql') > 0) {
 			#print "$full\n";
-			mbz_do_sql($full);
+			mbz_do_sql("begin");
+			mbz_do_sql($full, 'nodie');
+			mbz_do_sql("commit");
 			$full = "";
 		}
 	}
@@ -47,8 +48,14 @@ sub backend_postgresql_update_index {
 		next if($line eq "" || substr($line, 0, 2) eq "--" || substr($line, 0, 1) eq "\\" ||
 		        substr($line, 0, 5) eq "BEGIN");
 		
+		# no need to create the index if it already exists
+		my $pos_index = index($line, 'INDEX ');
+		my $index_name = mbz_trim(substr($line, $pos_index + 6, index($line, ' ', $pos_index + 7) -
+				                  $pos_index - 6));
+		next if(backend_postgresql_index_exists($index_name));
+		
 		print "$line\n";
-		mbz_do_sql($line);
+		mbz_do_sql($line, 'nodie');
 	}
 	close(SQL);
 	
@@ -59,8 +66,14 @@ sub backend_postgresql_update_index {
 		next if($line eq "" || substr($line, 0, 2) eq "--" || substr($line, 0, 1) eq "\\" ||
 		        substr($line, 0, 5) eq "BEGIN");
 		
+		# no need to create the index if it already exists
+		my $pos_index = index($line, 'CONSTRAINT ');
+		my $index_name = mbz_trim(substr($line, $pos_index + 11, index($line, ' ', $pos_index + 12) -
+				                  $pos_index - 11));
+		next if(backend_postgresql_index_exists($index_name));
+		
 		print "$line\n";
-		mbz_do_sql($line);
+		mbz_do_sql($line, 'nodie');
 	}
 	close(SQL);
 }
@@ -79,8 +92,8 @@ sub backend_postgresql_update_index {
 # It would be nice if this subroutine had a makeover so that it would check items before attempting
 # to create (and replace) them. This is just so all the error messages and so nasty.
 # @return Always 1.
-sub backend_postgresql_update_schema {
-	open(SQL, "replication/CreateTables.sql");
+sub backend_postgresql_update_schema_file {
+	open(SQL, $_[0]);
 	chomp(my @lines = <SQL>);
 	my $table = "";
 	foreach my $line (@lines) {
@@ -88,7 +101,7 @@ sub backend_postgresql_update_schema {
 		next if($line eq "" || $line eq "(" || substr($line, 0, 1) eq "\\");
 		
 		my $stmt = "";
-		if(substr($line, 0, 6) eq "CREATE") {
+		if(substr($line, 0, 12) eq "CREATE TABLE") {
 			$table = mbz_remove_quotes(substr($line, 13, length($line)));
 			if(substr($table, length($table) - 1, 1) eq '(') {
 				$table = substr($table, 0, length($table) - 1);
@@ -108,7 +121,7 @@ sub backend_postgresql_update_schema {
 				# because the original MusicBrainz database is PostgreSQL we only need to make
 				# minimal changes to the SQL.
 				
-				if(substr($parts[$i], 0, 4) eq "CUBE" && !$g_contrib_cube) {
+				if(uc(substr($parts[$i], 0, 4)) eq "CUBE" && !$g_contrib_cube) {
 					$parts[$i] = "TEXT";
 				}
 			}
@@ -130,6 +143,12 @@ sub backend_postgresql_update_schema {
 	
 	close(SQL);
 	return 1;
+}
+
+
+sub backend_postgresql_update_schema {
+	backend_postgresql_update_schema_file("replication/CreateTables.sql");
+	backend_postgresql_update_schema_file("replication/ReplicationSetup.sql");
 }
 
 
@@ -234,11 +253,13 @@ sub backend_postgresql_create_extra_tables {
 # @param $index_name The name of the index to look for.
 # @return 1 if the index exists, otherwise 0.
 sub backend_postgresql_index_exists {
-	my $index_name = $_[0];
-	
-	# TODO: incomplete
-	
-	return 0;
+	my $sth = $dbh->prepare("select count(*) from (".
+	                        "select constraint_name from information_schema.key_column_usage ".
+	                        "where constraint_name='$_[0]' union all select indexname from pg_indexes ".
+	                        "where indexname='$_[0]') as t");
+	$sth->execute();
+	my $result = $sth->fetchrow_hashref();
+	return $result->{'count'};
 }
 
 
@@ -249,32 +270,34 @@ sub backend_postgresql_index_exists {
 # @return Always 1.
 sub backend_postgresql_load_pending {
 	$id = $_[0];
+	my $pending = mbz_escape_entity($g_pending);
+	my $pendingdata = mbz_escape_entity($g_pendingdata);
 
 	# make sure there are no pending transactions before cleanup
-	$temp = $dbh->prepare("SELECT count(1) FROM $g_pending");
+	$temp = $dbh->prepare("SELECT count(1) FROM $pending");
 	$temp->execute;
 	@row = $temp->fetchrow_array();
 	$temp->finish;
 	return -1 if($row[0] ne '0');
 
 	# perform cleanup (makes sure there no left over records in the PendingData table)
-	$dbh->do("DELETE FROM $g_pending");
+	$dbh->do("DELETE FROM $pending");
 
 	# load Pending and PendingData
 	print localtime() . ": Loading pending tables... ";
 	
-	open(TABLEDUMP, "replication/$id/mbdump/$g_pending")
-		or warn("Error: cannot open file 'replication/$id/mbdump/$g_pending'\n");
-	$dbh->do("COPY $g_pending FROM STDIN");
+	open(TABLEDUMP, "replication/$id/mbdump/$g_pendingfile")
+		or warn("Error: cannot open file 'replication/$id/mbdump/$g_pendingfile'\n");
+	$dbh->do("COPY $pending FROM STDIN");
 	while($readline = <TABLEDUMP>) {
 		$dbh->pg_putcopydata($readline);
 	}
 	close(TABLEDUMP);
   	$dbh->pg_putcopyend();
   	
-  	open(TABLEDUMP, "replication/$id/mbdump/$g_pendingdata")
-  		or warn("Error: cannot open file 'replication/$id/mbdump/$g_pendingdata'\n");
-	$dbh->do("COPY $g_pendingdata FROM STDIN");
+  	open(TABLEDUMP, "replication/$id/mbdump/$g_pendingdatafile")
+  		or warn("Error: cannot open file 'replication/$id/mbdump/$g_pendingdatafile'\n");
+	$dbh->do("COPY $pendingdata FROM STDIN");
 	while($readline = <TABLEDUMP>) {
 		$dbh->pg_putcopydata($readline);
 	}
@@ -296,9 +319,17 @@ sub backend_postgresql_load_pending {
 # Wnen dealing with table and column names that contain upper and lowercase letters some databases
 # require the table name to be encapsulated.  PostgreSQL uses double-quotes.
 # @return A new encapsulated entity.
-sub backend_mysql_escape_entity {
+sub backend_postgresql_escape_entity {
 	my $entity = $_[0];
 	return "\"$entity\"";
+}
+
+
+sub backend_postgresql_create_plpgsql {
+	my $sth = $dbh->prepare("SELECT count(*) FROM pg_catalog.pg_language WHERE lanname='plpgsql'");
+	$sth->execute();
+	my @row = $sth->fetchrow_array();
+	mbz_do_sql("CREATE LANGUAGE plpgsql") if($row[0] == 0)
 }
 
 

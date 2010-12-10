@@ -74,7 +74,7 @@ if($f_skiptorep > 0) {
 }
 
 # FIND IF THERE ARE PENDING TRANSACTIONS
-$sth = $dbh->prepare("SELECT count(1) from $g_pending");
+$sth = $dbh->prepare("SELECT count(1) from " . mbz_escape_entity($g_pending));
 $sth->execute();
 @row = $sth->fetchrow_array();
 if($f_info) {

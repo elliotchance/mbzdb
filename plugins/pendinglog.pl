@@ -38,18 +38,26 @@ sub pendinglog_init {
 
 sub pendinglog_beforereplication {
 	my ($repID) = @_;
+	my $pending = mbz_escape_entity($g_pending);
+	my $pendingdata = mbz_escape_entity($g_pendingdata);
+	my $seqid = mbz_escape_entity("SeqId");
+	my $iskey = mbz_escape_entity("IsKey");
+	my $tablename = mbz_escape_entity("TableName");
+	my $op = mbz_escape_entity("Op");
+	my $xid = mbz_escape_entity("XID");
+	my $data = mbz_escape_entity("Data");
 	
 	mbz_do_sql(qq|
 		INSERT INTO pendinglog
-		SELECT $g_pending.SeqId, '$repID',
-			substring(TableName from 11 for length(TableName) - 11) as TableName, Op, XID, P1.Data,
-			P2.Data as keyclause
-		FROM $g_pending
-		LEFT JOIN $g_pendingdata as P1 on $g_pending.SeqId=P1.SeqId and P1.IsKey='f'
-		LEFT JOIN $g_pendingdata as P2 on $g_pending.SeqId=P2.SeqId and P2.IsKey='t'
+		SELECT $pending.$seqid, '$repID',
+			substring($tablename from 11 for length($tablename) - 11) as $tablename, $op, $xid, P1.$data,
+			P2.$data as keyclause
+		FROM $pending
+		LEFT JOIN $pendingdata as P1 on $pending.$seqid=P1.$seqid and P1.$iskey='f'
+		LEFT JOIN $pendingdata as P2 on $pending.$seqid=P2.$seqid and P2.$iskey='t'
 	|);
 	mbz_do_sql(qq|
-		UPDATE livestats set val=val+(select count(1) from $g_pending)
+		UPDATE livestats set val=val+(select count(1) from $pending)
 		where name='count.pendinglog'
 	|);
 	return 1;
