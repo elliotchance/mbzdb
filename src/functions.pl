@@ -105,10 +105,10 @@ sub mbz_download_file {
 	my $request = HTTP::Request->new('GET', $_[0]);
 	my $resp = $ua->request($request, $_[1]);
 
-    if( $resp->is_success ) {
-        return $resp;
-    } else {
-        die 'Error downloading ' . $_[0] . ': ' . $resp->status_line;
+	if($resp->is_success) {
+		return $resp;
+	} else {
+		die 'Error downloading ' . $_[0] . ': ' . $resp->status_line;
 	}
 }
 
