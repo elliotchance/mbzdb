@@ -148,7 +148,8 @@ sub backend_mysql_load_pending {
 	
 	# PLUGIN_beforereplication()
 	foreach my $plugin (@g_active_plugins) {
-		eval("$plugin" . "_beforereplication($id)") or die($!);
+		my $function_name = "${plugin}_beforereplication";
+		(\&$function_name)->($id) || die($!);
 	}
 	
 	return 1;

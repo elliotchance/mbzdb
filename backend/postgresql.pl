@@ -308,7 +308,8 @@ sub backend_postgresql_load_pending {
 	
 	# PLUGIN_beforereplication()
 	foreach my $plugin (@g_active_plugins) {
-		eval($plugin . "_beforereplication($id)") or warn($!);
+		my $function_name = "${plugin}_beforereplication";
+		(\&$function_name)->($id) || die($!);
 	}
 	
 	return 1;

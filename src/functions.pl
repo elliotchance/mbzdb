@@ -69,7 +69,8 @@ sub mbz_choose_language {
 # @return Passthru from backend_DB_connect().
 sub mbz_connect {
 	# use the subroutine appropriate for the RDBMS
-	return eval("backend_$g_db_rdbms" . "_connect();");
+	my $function_name = "backend_${g_db_rdbms}_connect";
+	return (\&$function_name)->();
 }
 
 
@@ -79,7 +80,8 @@ sub mbz_connect {
 # @return Passthru from backend_DB_update_schema().
 sub mbz_create_extra_tables {
 	# use the subroutine appropriate for the RDBMS
-	return eval("backend_$g_db_rdbms" . "_create_extra_tables();");
+	my $function_name = "backend_${g_db_rdbms}_create_extra_tables";
+	return (\&$function_name)->();
 }
 
 
@@ -169,7 +171,8 @@ sub mbz_download_schema {
 sub mbz_escape_entity {
 	# use the subroutine appropriate for the RDBMS
 	my $entity = $_[0];
-	return eval("backend_$g_db_rdbms" . "_escape_entity(\"$entity\");");
+	my $function_name = "backend_${g_db_rdbms}_escape_entity";
+	return (\&$function_name)->($entity);
 }
 
 
@@ -262,7 +265,8 @@ sub mbz_in_array {
 sub mbz_index_exists {
 	# use the subroutine appropriate for the RDBMS
 	my $index_name = $_[0];
-	return eval("backend_$g_db_rdbms" . "_index_exists(\"$index_name\");");
+	my $function_name = "backend_${g_db_rdbms}_index_exists";
+	return (\&$function_name)->($index_name);
 }
 
 
@@ -274,7 +278,8 @@ sub mbz_init_plugins {
 	# PLUGIN_init() for each active plugin
 	foreach my $plugin (@g_active_plugins) {
 		require "plugins/$plugin.pl";
-		eval($plugin . "_init()") or warn($!);
+		my $function_name = "${plugin}_init";
+		(\&$function_name)->() || warn($!);
 	}
 	
 	return 1;
@@ -286,7 +291,8 @@ sub mbz_init_plugins {
 # @return Passthru from backend_DB_load_data().
 sub mbz_load_data {
 	# use the subroutine appropriate for the RDBMS
-	return eval("backend_$g_db_rdbms" . "_load_data();");
+	my $function_name = "backend_${g_db_rdbms}_load_data";
+	return (\&$function_name)->();
 }
 
 
@@ -297,7 +303,8 @@ sub mbz_load_data {
 sub mbz_load_pending {
 	# use the subroutine appropriate for the RDBMS
 	my $id = $_[0];
-	return eval("backend_$g_db_rdbms" . "_load_pending(\"$id\");");
+	my $function_name = "backend_${g_db_rdbms}_load_pending";
+	return (\&$function_name)->($id);
 }
 
 
@@ -578,9 +585,8 @@ sub mbz_run_transactions {
 				
 			# PLUGIN_beforestatement()
 			foreach my $plugin (@g_active_plugins) {
-				eval($plugin .
-					"_beforestatement('$tableName', '$rep_row[0]', '$rep_row[2]', \$data)")
-					or warn($!);
+				my $function_name = "${plugin}_beforestatement";
+				(\&$function_name)->($tableName, $rep_row[0], $rep_row[2], \$data) || warn ($!);
 			}
 			
 			# execute SQL
@@ -594,9 +600,8 @@ sub mbz_run_transactions {
 				
 			# PLUGIN_afterstatement()
 			foreach my $plugin (@g_active_plugins) {
-				eval($plugin .
-					"_afterstatement('$tableName', '$rep_row[0]', '$rep_row[2]', \$data)")
-					or warn($!);
+				my $function_name = "${plugin}_afterstatement";
+				(\&$function_name)->($tableName, $rep_row[0], $rep_row[2], \$data) || warn ($!);
 			}
 			
 			# clear for next round
@@ -610,7 +615,8 @@ sub mbz_run_transactions {
 	
 	# PLUGIN_afterreplication()
 	foreach my $plugin (@g_active_plugins) {
-		eval($plugin . "_afterreplication($currep)") or warn($!);
+		my $function_name = "${plugin}_afterreplication";
+		(\&$function_name)->($currep) || warn ($!);
 	}
 	
 	# Clean up. Remove old replication
@@ -695,7 +701,8 @@ sub mbz_sql_error {
 sub mbz_table_column_exists {
 	# use the subroutine appropriate for the RDBMS
 	my ($table_name, $col_name) = @_;
-	return eval("backend_$g_db_rdbms" . "_table_column_exists(\"$table_name\", \"$col_name\");");
+	my $function_name = "backend_${g_db_rdbms}_table_column_exists";
+	return (\&$function_name)->($table_name, $col_name);
 }
 
 
@@ -705,7 +712,9 @@ sub mbz_table_column_exists {
 # @return Passthru from backend_DB_table_exists().
 sub mbz_table_exists {
 	# use the subroutine appropriate for the RDBMS
-	return eval("backend_$g_db_rdbms" . "_table_exists(\"$_[0]\");");
+	my $table_name = $_[0];
+	my $function_name = "backend_${g_db_rdbms}_table_exists";
+	return (\&$function_name)->($table_name);
 }
 
 
@@ -837,7 +846,8 @@ sub mbz_unzip_replication {
 # @return Passthru from backend_DB_update_index().
 sub mbz_update_index {
 	# use the subroutine appropriate for the RDBMS
-	return eval("backend_$g_db_rdbms" . "_update_index();");
+	my $function_name = "backend_${g_db_rdbms}_update_index";
+	return (\&$function_name)->();
 }
 
 
@@ -851,7 +861,8 @@ sub mbz_update_schema {
 	print $L{'done'} . "\n";
 	
 	# use the subroutine appropriate for the RDBMS
-	return eval("backend_$g_db_rdbms" . "_update_schema();");
+	my $function_name = "backend_${g_db_rdbms}_update_schema";
+	return (\&$function_name)->();
 }
 
 
