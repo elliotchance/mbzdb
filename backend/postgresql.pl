@@ -96,21 +96,29 @@ sub backend_postgresql_update_schema_file {
 	open(SQL, $_[0]);
 	chomp(my @lines = <SQL>);
 	my $table = "";
+	my $skip = 0;
 	foreach my $line (@lines) {
 		# skip blank lines and single bracket lines
 		next if($line eq "" || $line eq "(" || substr($line, 0, 1) eq "\\");
 		
 		my $stmt = "";
 		if(substr($line, 0, 12) eq "CREATE TABLE") {
+			$skip = 0;
 			$table = mbz_remove_quotes(substr($line, 13, length($line)));
 			if(substr($table, length($table) - 1, 1) eq '(') {
 				$table = substr($table, 0, length($table) - 1);
 			}
 			$table = mbz_trim($table);
 			print $L{'table'} . " $table\n";
-			$stmt = "CREATE TABLE \"$table\" (dummycolumn int)";
-			$stmt .= " tablespace $g_tablespace" if($g_tablespace ne '');
-		} elsif(substr($line, 0, 1) eq " " || substr($line, 0, 1) eq "\t") {
+			if(backend_postgresql_table_exists($table) == 0) {
+				$stmt = "CREATE TABLE \"$table\" (dummycolumn int)";
+				$stmt .= " tablespace $g_tablespace" if($g_tablespace ne '');
+			}
+		}
+		elsif(substr($line, 0, 16) eq "CREATE AGGREGATE") {
+			$skip = 1;
+		}
+		elsif(substr($line, 0, 1) eq " " || substr($line, 0, 1) eq "\t") {
 			my @parts = split(" ", $line);
 			for($i = 0; $i < @parts; ++$i) {
 				if(substr($parts[$i], 0, 2) eq "--") {
@@ -130,14 +138,24 @@ sub backend_postgresql_update_schema_file {
 			}
 			next if($parts[0] eq "CHECK" || $parts[0] eq "CONSTRAINT" || $parts[0] eq "");
 			$parts[0] = mbz_remove_quotes($parts[0]);
-			$stmt = "ALTER TABLE \"$table\" ADD \"$parts[0]\" " .
-				join(" ", @parts[1 .. @parts - 1]);
-		} elsif(substr($line, 0, 2) eq ");") {
-			$stmt = "ALTER TABLE \"$table\" DROP dummycolumn";
+			if($parts[0] ne 'PRIMARY' && $parts[0] ne 'FOREIGN') {
+				if($table ne '' && backend_postgresql_table_column_exists($table, mbz_remove_quotes($parts[0])) == 0) {
+					$parts[0] = "\"$parts[0]\"";
+					$stmt = "ALTER TABLE \"$table\" ADD " . join(" ", @parts);
+				}
+			}
+		}
+		elsif(substr($line, 0, 2) eq ");") {
+			if($table ne '' && backend_postgresql_table_column_exists($table, 'dummycolumn') == 1) {
+				$stmt = "ALTER TABLE \"$table\" DROP dummycolumn";
+			}
 		}
 		if($stmt ne "") {
 			# if this statement fails its hopefully because the field exists
-			$dbh->do($stmt) or print "";
+			if($skip == 0) {
+				print "> $stmt\n";
+				$dbh->do($stmt) or print "";
+			}
 		}
 	}
 	
@@ -159,9 +177,8 @@ sub backend_postgresql_update_schema {
 # @param $table_name The name of the table to look for.
 # @return 1 if the table exists, otherwise 0.
 sub backend_postgresql_table_exists {
-	# TODO: I don't know if this is checking for views.
-	my $sth = $dbh->prepare("select count(1) as count from information_schema.tables ".
-	                        "where table_name='$_[0]'");
+	my $sth = $dbh->prepare("select count(1) as count from pg_tables ".
+	                        "where tablename='$_[0]'");
 	$sth->execute();
 	my $result = $sth->fetchrow_hashref();
 	return $result->{'count'};
@@ -176,9 +193,12 @@ sub backend_postgresql_table_exists {
 sub backend_postgresql_table_column_exists {
 	my ($table_name, $col_name) = @_;
 	
-	# TODO: incomplete
-	
-	return 0;
+	my $sth = $dbh->prepare("select count(*) as count from pg_attribute ".
+	                        "where pg_attribute.attrelid='\"$table_name\"'::regclass and ".
+	                        "attname='$col_name'");
+	$sth->execute();
+	my $result = $sth->fetchrow_hashref();
+	return $result->{'count'};
 }
 
 
