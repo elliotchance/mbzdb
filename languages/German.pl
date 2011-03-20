@@ -3,6 +3,7 @@
 #############################################
 
 # Lanuage
+use utf8;
 $L{'language'} = "German";
 
 ##-------------------------------------------
@@ -15,78 +16,79 @@ $L{'table'} = "Tabelle";
 $L{'alldone'} = "Alles erledigt";
 $L{'downloadschema'} = "Lade Schema herunter... ";
 $L{'restart_init'} = "Bitte init.pl erneut aufrufen";
-$L{'invalid'} = "Ung걄tige Eingabe";
+$L{'invalid'} = "Ung체ltige Eingabe";
 
 ##-------------------------------------------
 ## init.pl
 ##-------------------------------------------
 
 # Language changed
-$L{'langchanged'} = "Sprache ge꼗dert. Bitte init.pl erneut aufrufen\n";
+$L{'langchanged'} = "Sprache ge채ndert. Bitte init.pl erneut aufrufen\n";
 
 # Welcome message
 $L{'init_welcome'} =
 "Willkommen bei mbzdb v1.0".
-"HINWEIS: Version 3 l꼞ft mit einem anderen Replikations-System als\n".
-"die 꼕teren Varianten. Wir empfehlen deshalb eine neue Datenbank f걊\n".
+"HINWEIS: Version 3 l채uft mit einem anderen Replikations-System als\n".
+"die 채lteren Varianten. Wir empfehlen deshalb eine neue Datenbank f체r\n".
 "diese v3 zu erstellen.".
 "Bitte fuer Details im Handbuch nachsehen.\n\n";
 
 $L{'init_firstboot'} =
-"*** Bevor es losgehen kann UNBEDINGT zuerst die gew걆schte MySQL-Datenbank\n".
+"*** Bevor es losgehen kann UNBEDINGT zuerst die gew체nschte MySQL-Datenbank\n".
 "    MANUELL erstellen! *** \n\n".
 "Werte in eckigen Klammern sind Standard-Vorgaben. Wenn man nicht sicher ist\n".
-"ob diese Werte stimmen, einfach mal ENTER dr갷ken um fortzusetzen.\n".
+"ob diese Werte stimmen, einfach mal ENTER dr체cken um fortzusetzen.\n".
 "Man kann jederzeit abbrechen und die Optionen werden gespeichert.\n".
 "Ein einzelner Leerschlag als Antwort setzt den Wert auf 'leer'.\n\n";
 
 # init action
 $L{'init_action'} =
-"Die einzelnen Optionen zeigen vor der Ausf갿rung zus꼝zliche Informationen,\n".
-"sobald ausgew꼑lt\n".
-"[1] Komplett-Installation (macht alles automatisch, ben봳igt grossen Download)\n".
+"Die einzelnen Optionen zeigen vor der Ausf체hrung zus채tzliche Informationen,\n".
+"sobald ausgew채hlt\n".
+"[1] Komplett-Installation (macht alles automatisch, ben철tigt grossen Download)\n".
 "[2] Installiert/aktualisiert Datenbank-Schema\n".
-"[3] L꼋t Tabellen (ben봳igt grossen Download ~1GB)\n".
-"[4] L꼋t Tabellen (kein Download, l꼋t von Verzeichnis 'mbdump/')\n".
+"[3] L채dt Tabellen (ben철tigt grossen Download ~1GB)\n".
+"[4] L채dt Tabellen (kein Download, l채dt von Verzeichnis 'mbdump/')\n".
 "[5] Erstellt Tabellen-Indexe (dauert sehr lange!)\n".
 "[6] Initialisiert Plug-Ins\n\n".
 "Option: ";
 
 # action descriptions
 $L{'init_actionfull'} =
-"Die Komplett-Installation erstellt das Datenbank-Schema, l꼋t die rohen Daten\n".
+"Die Komplett-Installation erstellt das Datenbank-Schema, l채dt die rohen Daten\n".
 "herunter (~1GB), importiert diese in die DB, erstellt alle Tabellen-Indexe und\n".
 "initialisiert anschliessend die Plug-Ins.\n\n".
-"Bitte Datei 'settings.pl' zuerst mit den gew걆schten Plug-Ins konfigurieren.\n\n".
-"ACHTUNG: Es kann bis zu 24 Stunden dauern bis all diese Schritte vollst꼗dig\n".
-"ausgef갿rt sind!\n\n".
+"Bitte Datei 'settings.pl' zuerst mit den gew체nschten Plug-Ins konfigurieren.\n\n".
+"ACHTUNG: Es kann bis zu 24 Stunden dauern bis all diese Schritte vollst채ndig\n".
+"ausgef체hrt sind!\n\n".
 "Bereit fortzusetzen? (y/n): ";
 
 $L{'init_actionschema'} =
-"Ben봳igt Internet-Verbindung. L꼋t neuestes Datenbank-Schema herunter und\n".
-"installiert oder aktualisert alle Ver꼗derungen...\n".
+"Ben철tigt Internet-Verbindung. L채dt neuestes Datenbank-Schema herunter und\n".
+"installiert oder aktualisert alle Ver채nderungen...\n".
 "Bereit fortzusetzen? (y/n): ";
 
 $L{'init_actionraw1'} =
-"Ben봳igt Internet-Verbindung. L꼋t neueste Musicbrainz-Daten herunter (~1GB)...\n".
+"Ben철tigt Internet-Verbindung. L채dt neueste Musicbrainz-Daten herunter (~1GB)...\n".
 "Bereit fortzusetzen? (y/n): ";
 
 $L{'init_actionraw2'} =
 "Wenn die neuesten Datenbank-Archiv-Dumps schon (manuell) heruntergeladen\n".
 "wurden, diese bitte dekomprimieren und die rohen Daten in das Verzeichnis\n".
-"'mbdump/' kopieren...\n".
+"'mbdump/' kopieren. Mit MySQL-Datenbank den Import nach dem Anlegen der\n".
+"Indexe durchf체hren, weil das schneller ist!\n".
 "Bereit fortzusetzen? (y/n): ";
 
 $L{'init_actionindex'} =
-"Hier wird am meisten Zeit ben봳igt. Es werden nun die Indexe zur bereits\n".
-"abgef걄lten Datenbank erstellt. Es ist wichtig, die Indexe NACH dem\n".
-"importieren der Daten zu erstellen, weil das schneller ist...\n".
+"Hier wird am meisten Zeit ben철tigt. Es werden nun die Indexe zur bereits\n".
+"abgef체llten Datenbank erstellt. Mit PostgreSQL-Datenbank die Indexe nach\n".
+" dem Importieren der Daten erstellen, weil das schneller ist.\n".
 "Dieser Schritt kann nach einem Abbruch jederzeit wieder aufgerufen werden.\n".
 "Bereit fortzusetzen? (y/n): ";
 
 $L{'init_actionplugininit'} =
-"Dieser Schritt sollte am Schluss aber vor der Replikation ausgef갿rt werden.\n".
-"Bitte die Einstellungen vorher f걊 die gew걆schten Plug-Ins in der Datei\n".
+"Dieser Schritt sollte am Schluss aber vor der Replikation ausgef체hrt werden.\n".
+"Bitte die Einstellungen vorher f체r die gew체nschten Plug-Ins in der Datei\n".
 "'settings.pl' bei der Variable 'g_active_plugins=' vornehmen.\n\n".
 "Zu initialisierende Plug-Ins sind: " . join(', ', @g_active_plugins) . "\n\n".
 "Bereit fortzusetzen? (y/n): ";

@@ -65,12 +65,13 @@ $L{'init_actionraw1'} =
 
 $L{'init_actionraw2'} =
 "If you have already downloaded the database dump, uncompress them and put the\n".
-"table files into the 'mbdump/' folder.... ready to proceed? (y/n): ";
+"table files into the 'mbdump/' folder. If using MySQL, load the data after\n".
+"applying the index because it is faster..... ready to proceed? (y/n): ";
 
 $L{'init_actionindex'} =
 "The most time consuming option. This will apply indexing to your already loaded\n".
-"database. It is important you apply the index after you load the raw data because\n".
-"it is faster.... if you cancel, you can safetly return by running this again.\n".
+"database. If using PostgreSQL, apply the index after you load the raw data because\n".
+"it is faster.... if you cancel, you can safely return by running this again.\n".
 "Ready to proceed? (y/n): ";
 
 $L{'init_actionplugininit'} =
