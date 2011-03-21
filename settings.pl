@@ -18,9 +18,6 @@ $g_db_pass = 'ngsdb';
 # The name of the database to use.
 $g_db_name = 'ngsdb';
 
-# Use NGS (Next Generation Schema)?
-$g_use_ngs = 1;
-
 
 #############################
 # Advanced database options
@@ -51,29 +48,17 @@ $g_tablespace = '';
 	# eg. 'trmids'
 );
 
-# there are some SQL inconsistencies when using non-NGS
-if(!$g_use_ngs) {
-	push(@g_ignore_tables, 'release_group');
-	push(@g_ignore_tables, 'release_group_meta');
-	push(@g_ignore_tables, 'release_groupwords');
-	push(@g_ignore_tables, 'isrc');
-	
-	push(@g_ignore_fields, 'release_group');
-	push(@g_ignore_fields, 'release_groupusecount');
-}
-
 # Schema. This is where the SQL scripts to create the schema come from, only edit this if you know
 # what you're doing.
 $schema_base = 'http://git.musicbrainz.org/gitweb/?p=musicbrainz-server.git;a=blob_plain';
-$hb = ($g_use_ngs ? 'master' : '6b70f50c57401fc07140dcbb242550b7e5ebfa31');
-$g_schema_url = "$schema_base;f=admin/sql/CreateTables.sql;hb=$hb";
-$g_index_url = "$schema_base;f=admin/sql/CreateIndexes.sql;hb=$hb";
-$g_pk_url = "$schema_base;f=admin/sql/CreatePrimaryKeys.sql;hb=$hb";
-$g_func_url = "$schema_base;f=admin/sql/CreateFunctions.sql;hb=$hb";
-$g_pending_url = "$schema_base;f=admin/sql/ReplicationSetup.sql;hb=$hb";
+$g_schema_url = "$schema_base;f=admin/sql/CreateTables.sql;hb=master";
+$g_index_url = "$schema_base;f=admin/sql/CreateIndexes.sql;hb=master";
+$g_pk_url = "$schema_base;f=admin/sql/CreatePrimaryKeys.sql;hb=master";
+$g_func_url = "$schema_base;f=admin/sql/CreateFunctions.sql;hb=master";
+$g_pending_url = "$schema_base;f=admin/sql/ReplicationSetup.sql;hb=master";
 
 # Replications URL
-$g_rep_url = "http://test.musicbrainz.org:82/pub/musicbrainz/data/replication";
+$g_rep_url = "http://data.test.musicbrainz.org";
 
 # Kill the update script if a duplicate error (i.e. a duplicate unique key) occurs. It is
 # recommended you leave this at 0.

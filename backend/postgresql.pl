@@ -153,7 +153,6 @@ sub backend_postgresql_update_schema_file {
 		if($stmt ne "") {
 			# if this statement fails its hopefully because the field exists
 			if($skip == 0) {
-				print "> $stmt\n";
 				$dbh->do($stmt) or print "";
 			}
 		}
