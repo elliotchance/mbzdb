@@ -64,7 +64,6 @@ if($action == 1) {
 	mbz_unzip_mbdumps();
 	mbz_load_data();
 } elsif($action == 4) {
-	mbz_unzip_mbdumps();
 	mbz_load_data();
 } elsif($action == 5) {
 	mbz_update_index();
