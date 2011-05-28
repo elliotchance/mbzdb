@@ -58,7 +58,8 @@ $g_func_url = "$schema_base;f=admin/sql/CreateFunctions.sql;hb=master";
 $g_pending_url = "$schema_base;f=admin/sql/ReplicationSetup.sql;hb=master";
 
 # Replications URL
-$g_rep_url = "http://data.test.musicbrainz.org";
+$g_rep_host = "ftp.musicbrainz.org";
+$g_rep_url = "/pub/musicbrainz/data/replication";
 
 # Kill the update script if a duplicate error (i.e. a duplicate unique key) occurs. It is
 # recommended you leave this at 0.

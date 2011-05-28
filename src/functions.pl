@@ -8,10 +8,6 @@ use Net::FTP;
 mbz_connect();
 
 
-# TODO:
-# ALTER TABLE  `artist_name` CHANGE  `name`  `name` TEXT CHARACTER SET latin1 COLLATE latin1_general_cs NOT NULL
-
-
 # mbz_check_new_schema($id)
 # Check if the SCHEMA_SEQUENCE matches $id, if it doesnt this means the schema has changed and we
 # need to go download the latest schema and alter the database accordingly.
@@ -123,22 +119,22 @@ sub mbz_download_file {
 #            replication.
 sub mbz_download_replication {
 	my $id = $_[0];
+	my $found = 1;
 	print "===== $id =====\n";
 	
 	# its possible the script was exited by the user or a crash during downloading or decompression,
 	# for this reason we always download the latest copy.
 	print localtime() . ": Downloading... ";
 	$localfile = "replication/replication-$id.tar.bz2";
-	$url = "$g_rep_url/replication-$id.tar.bz2";
-	my $resp = mbz_download_file($url, $localfile);
-	$found = 0;
+	$file = "replication-$id.tar.bz2";
 	
-	use HTTP::Status qw( RC_OK RC_NOT_FOUND RC_NOT_MODIFIED );
-	if($resp->code == RC_NOT_FOUND) {
-		# file not found
-	} elsif($resp->code == RC_OK || $resp->code == RC_NOT_MODIFIED) {
-		$found = 1;
-	}
+	my $ftp = Net::FTP->new($g_rep_host, Timeout => 60)
+				or die "Cannot contact $host: $!";
+	$ftp->login('anonymous') or die "Can't login ($host): " . $ftp->message;
+	$ftp->cwd($g_rep_url)
+		or die "Can't change directory ($g_rep_url): " . $ftp->message;
+	$ftp->binary();
+	$ftp->get($file, $localfile) or $found = 0;
 	
 	print "Done\n";
 	return $found;
@@ -385,56 +381,28 @@ sub mbz_pad_right {
 # @return 1 on success. This subroutine has the potential to issue a die() if there as serious ftp
 #         problems.
 sub mbz_raw_download {
-	print "Logging into MusicBrainz FTP...\n";
+	my $host = 'ftp.musicbrainz.org';
 	my @files;
-	my $ftp;
 	
-	if($g_use_ngs) {
-		# find out the latest NGS
-		my $latest = "";
-		my $host = 'ftp.musicbrainz.org';
-		$ftp = Net::FTP->new($host, Timeout => 60)
-					or die "Cannot contact $host: $!";
-		$ftp->login('anonymous') or die "Can't login ($host): " . $ftp->message;
-		$ftp->cwd('/pub/musicbrainz/data/ngs/')
-			or die "Can't change directory ($host): " . $ftp->message;
-		my @ls = $ftp->ls('-lr');
-		my @parts = split(' ', $ls[0]);
-		$latest = pop(@parts);
-		print "The latest is mbdump is '$latest'\n";
-		$ftp->cwd("/pub/musicbrainz/data/ngs/$latest")
-				or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
-				
-		@files = (
-			'mbdump-derived.tar.bz2',
-			'mbdump-stats.tar.bz2',
-			'mbdump.tar.bz2'
-		);
-	} else {
-		# find out the latest fullexport
-		my $latest = "";
-		$ftp = Net::FTP->new('ftp.musicbrainz.org', Timeout => 60)
-			or die "Cannot contact ftp.musicbrainz.org: $!";
-		$ftp->login('anonymous') or die("Can't login (ftp.musicbrainz.org): " . $ftp->message);
-		$ftp->cwd('/pub/musicbrainz/data/fullexport/')
-			or die("Can't change directory (ftp.musicbrainz.org): " . $ftp->message);
-		my @ls = $ftp->ls('-lR');
-		foreach my $l (@ls) {
-			if(index($l, 'latest-is-') >= 0) {
-				$ftp->cwd('/pub/musicbrainz/data/fullexport/' .
-				          substr($l, index($l, 'latest-is-') + 10))
-					or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
-				last;
-			}
-		}
-		
-		@files = (
-			'mbdump-artistrelation.tar.bz2',
-			'mbdump-derived.tar.bz2',
-			'mbdump-stats.tar.bz2',
-			'mbdump.tar.bz2'
-		);
-	}
+	# find out the latest NGS
+	my $latest = "";
+	print "Logging into MusicBrainz FTP ($host)...\n";
+	my $ftp = Net::FTP->new($host, Timeout => 60)
+				or die "Cannot contact $host: $!";
+	$ftp->login('anonymous') or die "Can't login ($host): " . $ftp->message;
+	$ftp->cwd('/pub/musicbrainz/data/fullexport/')
+		or die "Can't change directory ($host): " . $ftp->message;
+	my @ls = $ftp->ls('-l latest*');
+	$latest = substr($ls[0], length($ls[0]) - 15, 15);
+	print "The latest is mbdump is '$latest'\n";
+	$ftp->cwd("/pub/musicbrainz/data/fullexport/$latest")
+			or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
+			
+	@files = (
+		'mbdump-stats.tar.bz2',
+		'mbdump-derived.tar.bz2',
+		'mbdump.tar.bz2'
+	);
 	
 	# probably need this
 	$ftp->binary();
