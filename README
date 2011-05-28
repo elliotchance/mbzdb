@@ -6,3 +6,10 @@ perl -MCPAN -e 'install LWP::UserAgent'
 perl -MCPAN -e 'install DBI'
 perl -MCPAN -e 'install DBD::Pg'
 perl -MCPAN -e 'install DBD::mysql'
+
+===== Version log =====
+5.0
+  * Full support for NGS for both PostgreSQL and MySQL.
+  * settings.pl is now split so that each backend gets its own
+    relevant settings file.
+  * A few minor bug fixes.
