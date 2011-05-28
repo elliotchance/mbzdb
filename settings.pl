@@ -7,38 +7,12 @@ require "src/firstboot.pl";
 #############################
 
 # Must be 'mysql' or 'postgresql'
-$g_db_rdbms = 'postgresql';
-
-# Database user name.
-$g_db_user = 'ngsdb';
-
-# Database user password.
-$g_db_pass = 'ngsdb';
-
-# The name of the database to use.
-$g_db_name = 'ngsdb';
+$g_db_rdbms = 'mysql';
 
 
 #############################
 # Advanced database options
 #############################
-
-# The table 'tracklist_index' uses a data type called 'CUBE' which is only available for postgresql
-# with contrib/cube installed. So if you are unsure leave this as 0.
-$g_contrib_cube = 0;
-
-# The engine to use when creating tables with MySQL. Set this to "" if you want to use the MySQL
-# default storage engine.
-$g_mysql_engine = 'InnoDB';
-
-# Server host, use 'localhost' if the database is on the same server as this script.
-$g_db_host = 'localhost';
-
-# Port number, set to 'default' to use the default port
-$g_db_port = 'default';
-
-# Tablespace to create all tables and indexes in. Leave blank to use the default tablespace.
-$g_tablespace = '';
 
 # You may want to ignore certain tables or fields during the replications.
 @g_ignore_tables = (
@@ -83,8 +57,6 @@ $g_die_on_plugin = 0;
 #############################
 # Don't edit beyond this point
 #############################
-
-$g_db_port = mbz_get_default_port($g_db_rdbms) if($g_db_port eq 'default');
 
 $g_pending = 'dbmirror_Pending';
 $g_pendingdata = 'dbmirror_PendingData';

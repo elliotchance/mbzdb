@@ -11,6 +11,7 @@ $f_skiptorep = 0;
 $f_truncatetables = 0;
 
 require "settings.pl";
+require "settings_$g_db_rdbms.pl";
 require "languages/$g_language.pl";
 require "backend/$g_db_rdbms.pl";
 require "src/functions.pl";
