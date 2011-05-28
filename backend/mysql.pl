@@ -163,6 +163,7 @@ sub backend_mysql_load_pending {
 # @return 1 if the table column exists, otherwise 0.
 sub backend_mysql_table_column_exists {
 	my ($table_name, $col_name) = @_;
+	return 0 if($table_name eq "");
 	
 	my $sth = $dbh->prepare("describe `$table_name`");
 	$sth->execute();
@@ -293,7 +294,8 @@ sub backend_mysql_update_schema_from_file {
 		next if($line eq "" || $line eq "(" || substr($line, 0, 1) eq "\\");
 		
 		my $stmt = "";
-		if(substr($line, 0, 6) eq "CREATE" && index($line, "INDEX") < 0) {
+		if(substr($line, 0, 6) eq "CREATE" && index($line, "INDEX") < 0 &&
+			index($line, "AGGREGATE") < 0) {
 			$table = mbz_remove_quotes(substr($line, 13, length($line)));
 			if(substr($table, length($table) - 1, 1) eq '(') {
 				$table = substr($table, 0, length($table) - 1);
@@ -325,7 +327,7 @@ sub backend_mysql_update_schema_from_file {
 				$parts[$i] = "CHAR(36)" if(uc(substr($parts[$i], 0, 4)) eq "UUID");
 				$parts[$i] = "TEXT" if(uc(substr($parts[$i], 0, 4)) eq "CUBE");
 				$parts[$i] = "CHAR(1)" if(uc(substr($parts[$i], 0, 4)) eq "BOOL");
-				#$parts[$i] = "VARCHAR(256)" if(uc($parts[$i]) eq "NAME");
+				$parts[$i] = "VARCHAR(256)" if(uc($parts[$i]) eq "INTERVAL");
 				$parts[$i] = "0" if(uc(substr($parts[$i], 0, 3)) eq "NOW");
 				$parts[$i] = "0" if(uc(substr($parts[$i], 1, 1)) eq "{");
 				$parts[$i] = $parts[$i + 1] = $parts[$i + 2] = "" if(uc($parts[$i]) eq "WITH");
@@ -349,9 +351,9 @@ sub backend_mysql_update_schema_from_file {
 				join(" ", @parts[1 .. @parts - 1]);
 				
 			# no need to create the column if it already exists in the table
-			$stmt = "" if(mbz_table_column_exists($table, $parts[0]));
+			$stmt = "" if($table eq "" || mbz_table_column_exists($table, $parts[0]));
 		} elsif(substr($line, 0, 2) eq ");") {
-			if(mbz_table_column_exists($table, "dummycolumn")) {
+			if($table ne "" && mbz_table_column_exists($table, "dummycolumn")) {
 				$stmt = "ALTER TABLE `$table` DROP dummycolumn";
 			}
 		}
