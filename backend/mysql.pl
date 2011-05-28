@@ -205,6 +205,7 @@ sub backend_mysql_update_index {
 	open(SQL, "replication/CreateIndexes.sql");
 	chomp(my @lines = <SQL>);
 	
+	my $index_size = 256;
 	foreach my $line (@lines) {
 		$line = mbz_trim($line);
 		my $pos_index = index($line, 'INDEX ');
@@ -236,7 +237,7 @@ sub backend_mysql_update_index {
 		my @columns = split(",", $cols);
 		for(my $i = 0; $i < @columns; ++$i) {
 			if(backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') {
-				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`(32)";
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)";
 			} else {
 				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
 			}
