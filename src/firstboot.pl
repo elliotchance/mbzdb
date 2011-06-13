@@ -1,5 +1,5 @@
 # First boot
-$g_chosenlanguage = 0;
+$g_chosenlanguage = 1;
 $g_firstboot      = 1;
 
 # Language

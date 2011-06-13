@@ -76,6 +76,32 @@ sub backend_postgresql_update_index {
 		mbz_do_sql($line, 'nodie');
 	}
 	close(SQL);
+	
+	open(SQL, "replication/CreateFKConstraints.sql");
+	chomp(my @lines = <SQL>);
+	my $sql = "";
+	my $index_name = "";
+	foreach my $line (@lines) {
+		# skip blank lines and single bracket lines
+		next if($line eq "" || substr($line, 0, 2) eq "--" || substr($line, 0, 1) eq "\\" ||
+		        substr($line, 0, 5) eq "BEGIN");
+		
+		# no need to create the index if it already exists
+		if(index($line, 'CONSTRAINT ') > 0) {
+			my $pos_index = index($line, 'CONSTRAINT ');
+			$index_name = mbz_trim(substr($line, $pos_index + 11));
+		}
+		
+		$sql .= $line;
+		if(index($sql, ';') > 0) {
+			next if(backend_postgresql_index_exists($index_name));
+			$sql = substr($sql, 0, index($sql, ';')) . " DEFERRABLE INITIALLY DEFERRED;";
+			print "$sql\n";
+			mbz_do_sql($sql, 'nodie');
+			$sql = "";
+		}
+	}
+	close(SQL);
 }
 
 

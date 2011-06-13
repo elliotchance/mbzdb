@@ -150,6 +150,8 @@ sub mbz_download_schema {
 	mbz_download_file($g_schema_url, "replication/CreateTables.sql");
 	unlink("replication/CreateIndexes.sql");
 	mbz_download_file($g_index_url, "replication/CreateIndexes.sql");
+	unlink("replication/CreateFKConstraints.sql");
+	mbz_download_file($g_indexfk_url, "replication/CreateFKConstraints.sql");
 	unlink("replication/CreatePrimaryKeys.sql");
 	mbz_download_file($g_pk_url, "replication/CreatePrimaryKeys.sql");
 	unlink("replication/CreateFunctions.sql");
@@ -502,55 +504,77 @@ sub mbz_run_transactions {
 	my $pendingdata = mbz_escape_entity($g_pendingdata);
 	my $seqid = mbz_escape_entity("SeqId");
 	my $iskey = mbz_escape_entity("IsKey");
-
-	my $rep_handle = $dbh->prepare(qq|
-		SELECT * from $pending
-		LEFT JOIN $pendingdata ON $pending.$seqid=$pendingdata.$seqid
-		ORDER BY $pending.$seqid, $iskey desc
+	my $xid = mbz_escape_entity("XID");
+	my $datacol = mbz_escape_entity("Data");
+	
+	# count total transactions
+	my $q = $dbh->prepare("select count(distinct $xid) as count from $pending");
+	$q->execute();
+	my $totalreps = $q->fetchrow_hashref()->{'count'};
+	
+	# run transactions
+	my $xid_handle = $dbh->prepare(qq|
+		SELECT distinct $xid from $pending
+		ORDER BY $pending.$xid
 	|);
-	$rep_handle->execute();
-	my $totalreps = mbz_get_count($g_pending);
+	$xid_handle->execute();
 	$starttime = time() - 1;
 	$currep = mbz_get_current_replication();
 	
-	my ($key, $data);
-	for(my $rows = 1; @rep_row = $rep_handle->fetchrow_array(); ) {
-		# next if we are ignoring this table
-		my $pos = index($rep_row[1], '.');
-		my $tableName = substr($rep_row[1], $pos + 2, length($rep_row[1]) - $pos - 3);
+	for(my $xids = 1; @xid_row = $xid_handle->fetchrow_array(); ++$xids) {
+		$tsql = "BEGIN;\nSET CONSTRAINTS ALL DEFERRED;\n";
 		
-		if(mbz_in_array(\@g_ignore_tables, $tableName)) {
-			++$rows if(($rep_row[5] eq '0' || $rep_row[5] eq 'f') || $rep_row[2] eq 'd');
-			mbz_do_sql("DELETE FROM $pending WHERE $seqid='$rep_row[0]'");
-			mbz_do_sql("DELETE FROM $pendingdata WHERE $seqid='$rep_row[0]'");
-			next;
-		}
+		my $rep_handle = $dbh->prepare(qq|
+			SELECT $pending.*,
+				(SELECT $datacol FROM $pendingdata WHERE $pending.$seqid=$pendingdata.$seqid AND $iskey=false) as data,
+				(SELECT $datacol FROM $pendingdata WHERE $pending.$seqid=$pendingdata.$seqid AND $iskey=true) as key
+			FROM $pending
+			WHERE $xid=$xid_row[$xid]
+			ORDER BY $xid, $pending.$seqid;
+		|);
+		$rep_handle->execute();
+		$starttime = time() - 1;
+		$currep = mbz_get_current_replication();
+		my ($key, $data);
 		
-		# also ignore any table that starts with "nz"
-		next if(substr($tableName, 0, 2) eq "nz");
+		# running statistics
+		print mbz_pad_right($xids, length($totalreps), ' '), "/$totalreps (", 
+			  mbz_pad_right(mbz_round($xids / $totalreps * 100), 3, ' '), '%)   ',
+			  "Run: " . mbz_format_time(time() - $starttime) . "   ",
+			  "ETA: " . mbz_format_time(((time() - $starttime) * ($totalreps / $xids)) *
+				(($totalreps - $xids) / $totalreps)),
+			  "\n";
 		
-		# rename sanitised tables
-		$tableName = "release_meta" if($tableName eq "release_meta_sanitised");
-	
-		# we use '1' and 't' for MySQL and PostgreSQL
-		$key = mbz_unpack_data($rep_row[6]) if($rep_row[5] eq '1' or $rep_row[5] eq 't');
+		while($rep_row = $rep_handle->fetchrow_hashref) {
+			# next if we are ignoring this table
+			my $pos = index($rep_row->{'TableName'}, '.');
+			my $tableName = substr($rep_row->{'TableName'}, $pos + 2,
+				length($rep_row->{'TableName'}) - $pos - 3);
+			
+			if(mbz_in_array(\@g_ignore_tables, $tableName)) {
+				$tsql .= "DELETE FROM $pending WHERE $seqid='" . $rep_row->{'SeqId'} . ";\n";
+				$tsql .= "DELETE FROM $pendingdata WHERE $seqid='" . $rep_row->{'SeqId'} . "'";
+				next;
+			}
 		
-		# we use '0' and 'f' for MySQL and PostgreSQL
-		if(($rep_row[5] eq '0' || $rep_row[5] eq 'f') || $rep_row[2] eq 'd') {
-			$data = mbz_unpack_data($rep_row[6]);
+			# unpack data
+			$key = mbz_unpack_data($rep_row->{'key'});
+			$data = mbz_unpack_data($rep_row->{'data'});
 			
 			# build replicated SQL
-			my $sql = "INSERT INTO ";
-			$sql = "UPDATE " if($rep_row[2] eq 'u');
-			$sql = "DELETE FROM " if($rep_row[2] eq 'd');
-			$sql .= mbz_escape_entity($tableName) . " ";
-			if($rep_row[2] eq 'i') {
-				$sql .= mbz_map_values($data, ',');
-			} elsif($rep_row[2] eq 'u') {
-				$sql .= "SET " . mbz_map_kv($data, ',');
+			my $sql = '';
+			my $tn = mbz_escape_entity($tableName);
+			if($rep_row->{'Op'} eq 'i') {
+				$sql = "INSERT INTO $tn " . mbz_map_values($data, ',');
 			}
-			$sql .= " WHERE " . mbz_map_kv($key, " AND ") if(defined($key));
-				
+			elsif($rep_row->{'Op'} eq 'u') {
+				$sql = "UPDATE $tn SET " . mbz_map_kv($data, ',') .
+					" WHERE " . mbz_map_kv($key, " AND ");
+			}
+			elsif($rep_row->{'Op'} eq 'd') {
+				$sql = "DELETE FROM $tn WHERE " . mbz_map_kv($key, " AND ");
+			}
+			
 			# PLUGIN_beforestatement()
 			foreach my $plugin (@g_active_plugins) {
 				my $function_name = "${plugin}_beforestatement";
@@ -558,13 +582,7 @@ sub mbz_run_transactions {
 			}
 			
 			# execute SQL
-			mbz_do_sql($sql);
-			print mbz_pad_right($rows, length($totalreps), ' '), "/$totalreps (", 
-			      mbz_pad_right(mbz_round($rows / $totalreps * 100), 3, ' '), '%)   ',
-			      "Run: " . mbz_format_time(time() - $starttime) . "   ",
-			      "ETA: " . mbz_format_time(((time() - $starttime) * ($totalreps / $rows)) *
-			      	(($totalreps - $rows) / $totalreps)),
-			      "\n";
+			$tsql .= "$sql;\n";
 				
 			# PLUGIN_afterstatement()
 			foreach my $plugin (@g_active_plugins) {
@@ -573,30 +591,36 @@ sub mbz_run_transactions {
 			}
 			
 			# clear for next round
-			mbz_do_sql("DELETE FROM $pending WHERE $seqid='$rep_row[0]'");
-			mbz_do_sql("DELETE FROM $pendingdata WHERE $seqid='$rep_row[0]'");
-			undef($key);
-			undef($data);
-			++$rows;
+			$tsql .= "DELETE FROM $pending WHERE $seqid='" . $rep_row->{'SeqId'} . "';\n";
+			$tsql .= "DELETE FROM $pendingdata WHERE $seqid='" . $rep_row->{'SeqId'} . "';\n";
+		}
+				
+		# execute transaction
+		$tsql .= "COMMIT;\n";
+		mbz_do_sql($tsql);
+		die($tsql);
+		
+		# PLUGIN_afterreplication()
+		foreach my $plugin (@g_active_plugins) {
+			my $function_name = "${plugin}_afterreplication";
+			(\&$function_name)->($currep) || warn ($!);
+		}
+		
+		# Clean up. Remove old replication
+		if($^O eq "MSWin32") {
+			system("del \"replication/replication-$currep.tar.bz2\"");
+			system("del \"replication/replication-$currep.tar\"");
+			system("rmdir /s /y \"replication/$currep\"");
+		}
+		else {
+			system("$g_rm -f \"replication/replication-$currep.tar.bz2\"");
+			system("$g_rm -f \"replication/replication-$currep.tar\"");
+			system("$g_rm -f -r \"replication/$currep\"");
 		}
 	}
 	
-	# PLUGIN_afterreplication()
-	foreach my $plugin (@g_active_plugins) {
-		my $function_name = "${plugin}_afterreplication";
-		(\&$function_name)->($currep) || warn ($!);
-	}
-	
-	# Clean up. Remove old replication
-	if($^O eq "MSWin32") {
-		system("del \"replication/replication-$currep.tar.bz2\"");
-		system("del \"replication/replication-$currep.tar\"");
-		system("rmdir /s /y \"replication/$currep\"");
-	} else {
-		system("$g_rm -f \"replication/replication-$currep.tar.bz2\"");
-		system("$g_rm -f \"replication/replication-$currep.tar\"");
-		system("$g_rm -f -r \"replication/$currep\"");
-	}
+	# end
+	exit(0);
 	
 	return 1;
 }
