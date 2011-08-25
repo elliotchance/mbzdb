@@ -317,6 +317,10 @@ sub backend_mysql_update_schema_from_file {
 					@parts = @parts[0 .. ($i - 1)];
 					last;
 				}
+				if(substr($parts[$i], 0, 5) eq "CHECK") {
+					@parts = @parts[0 .. ($i - 1)];
+					last;
+				}
 				
 				if(substr($parts[$i], length($parts[$i]) - 2, 2) eq "[]") {
 					$parts[$i] = "VARCHAR(255)";
