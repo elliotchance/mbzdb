@@ -259,22 +259,46 @@ sub backend_mysql_update_index {
 	}
 	close(SQL);
 	
-	# the second phase is to add indexing for what PostgreSQL would of originally defined as SERIAL
-	# columns. We can't guarantee that given any column called 'id' will be unique (even through
-	# that's likely) so we create normal indexes on them
-	my $q = $dbh->prepare("show tables");
-	$q->execute();
-	while(@r = $q->fetchrow_array()) {
-		my $q2 = $dbh->prepare("describe `$r[0]`");
-		$q2->execute();
-		while(@r2 = $q2->fetchrow_array()) {
-			if($r2[0] eq 'id' && !mbz_index_exists("$r[0]_$r2[0]_idx")) {
-				$sql = "CREATE INDEX `$r[0]_$r2[0]_idx` ON `$r[0]` (`$r2[0]`)";
-				print "$sql\n";
-				mbz_do_sql($sql);
+	open(SQL, "replication/CreatePrimaryKeys.sql");
+	chomp(my @lines = <SQL>);
+	foreach my $line (@lines) {
+		$line = mbz_trim($line);
+
+		# skip blank lines and single bracket lines
+		next if($line eq "" || substr($line, 0, 2) eq "--" || substr($line, 0, 1) eq "\\" ||
+		        substr($line, 0, 5) eq "BEGIN");
+
+		my $pos_table = index($line, 'TABLE ');
+		my $pos_add = index($line, 'ADD ');
+		my $pos_index = index($line, 'CONSTRAINT ');
+
+		my $table_name = mbz_trim(substr($line, $pos_table + length('TABLE '), $pos_add - $pos_table - length('TABLE ')));
+		my $index_name = mbz_trim(substr($line, $pos_index + 11, index($line, ' ', $pos_index + 12) -
+				                  $pos_index - 11));
+		my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
+
+		# no need to create the index if it already exists
+		next if(backend_mysql_index_exists($index_name));
+
+		# split and clean column names. this is also a good time to find out there type, if its
+		# TEXT then MySQL requires and index length.
+		my @columns = split(",", $cols);
+		for(my $i = 0; $i < @columns; ++$i) {
+			if(backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)";
+			} else {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
 			}
 		}
+
+		# now we construct the index back together in case there was changes along the way
+		$new_line = "ALTER TABLE `$table_name` ADD CONSTRAINT `$index_name` PRIMARY KEY  (";
+		$new_line .= join(",", @columns) . ")";
+
+		print "$new_line\n";
+		mbz_do_sql($new_line, 'nodie');
 	}
+	close(SQL);
 	
 	print "Done\n";
 	return 1;
