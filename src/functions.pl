@@ -152,6 +152,8 @@ sub mbz_download_schema {
 	mbz_download_file($g_index_url, "replication/CreateIndexes.sql");
 	unlink("replication/CreatePrimaryKeys.sql");
 	mbz_download_file($g_pk_url, "replication/CreatePrimaryKeys.sql");
+	unlink("replication/CreateFKConstraints.sql");
+	mbz_download_file($g_indexfk_url, "replication/CreateFKConstraints.sql");
 	unlink("replication/CreateFunctions.sql");
 	mbz_download_file($g_func_url, "replication/CreateFunctions.sql");
 	unlink("replication/ReplicationSetup.sql");
