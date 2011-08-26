@@ -299,6 +299,51 @@ sub backend_mysql_update_index {
 		mbz_do_sql($new_line, 'nodie');
 	}
 	close(SQL);
+
+	open(SQL, "replication/CreateFKConstraints.sql");
+	chomp(my @lines = <SQL>);
+	my $index_name = "", $table_name = "", $columns = [], $foreign_table_name = "", $foreign_columns = [];
+	foreach my $line (@lines) {
+		# skip blank lines and single bracket lines
+		next if($line eq "" || substr($line, 0, 2) eq "--" || substr($line, 0, 1) eq "\\" ||
+		        substr($line, 0, 5) eq "BEGIN");
+
+		if(index($line, 'CONSTRAINT ') > 0) {
+			my $pos_index = index($line, 'CONSTRAINT ');
+			$index_name = mbz_trim(substr($line, $pos_index + length('CONSTRAINT ')));
+		}
+		if(index($line, 'TABLE ') > 0) {
+			my $pos_index = index($line, 'TABLE ');
+			$table_name = mbz_trim(substr($line, $pos_index + length('TABLE ')));
+		}
+		if(index($line, 'REFERENCES ') > 0) {
+			my $pos_index = index($line, 'REFERENCES ');
+			$foreign_table_name = mbz_trim(substr($line, $pos_index + length("REFERENCES "), index($line, '(') - $pos_index - length("REFERENCES ")));
+            my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
+		    @foreign_columns = split(",", $cols);
+		    for(my $i = 0; $i < @columns; ++$i) {
+			    $foreign_columns[$i] = "`" . mbz_trim(mbz_remove_quotes($foreign_columns[$i])) . "`";
+		    }
+		}
+		if(index($line, 'FOREIGN KEY ') > 0) {
+            my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
+		    @columns = split(",", $cols);
+		    for(my $i = 0; $i < @columns; ++$i) {
+			    $columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
+		    }
+		}
+
+		if(index($line, ';') > 0) {
+			next if(backend_mysql_index_exists($index_name));
+            $sql = "ALTER TABLE `$table_name` ADD CONSTRAINT `$index_name`";
+            $sql .= " FOREIGN KEY (" . join(",", @columns) . ")";
+            $sql .= " REFERENCES `$foreign_table_name`(" . join(",", @foreign_columns) . ")";
+
+			print "$sql\n";
+			mbz_do_sql($sql, 'nodie');
+		}
+	}
+	close(SQL);
 	
 	print "Done\n";
 	return 1;
