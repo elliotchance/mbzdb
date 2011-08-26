@@ -820,6 +820,15 @@ sub mbz_update_index {
 	return (\&$function_name)->();
 }
 
+# mbz_update_foreignkey()
+# This subroutine is just a controller that redirects to the update index for the RDBMS we are
+# using.
+# @return Passthru from backend_DB_update_index().
+sub mbz_update_foreignkey {
+	# use the subroutine appropriate for the RDBMS
+	my $function_name = "backend_${g_db_rdbms}_update_foreignkey";
+	return (\&$function_name)->();
+}
 
 # mbz_update_schema()
 # This subroutine is just a controller that redirects to the update schema for the RDBMS we are

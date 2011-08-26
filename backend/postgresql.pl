@@ -76,7 +76,9 @@ sub backend_postgresql_update_index {
 		mbz_do_sql($line, 'nodie');
 	}
 	close(SQL);
+}
 	
+sub backend_postgresql_update_foreignkey {
 	open(SQL, "replication/CreateFKConstraints.sql");
 	chomp(my @lines = <SQL>);
 	my $sql = "";

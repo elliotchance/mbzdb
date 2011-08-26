@@ -43,7 +43,8 @@ $L{'init_action'} =
 "[3] Load raw tables (requires big download ~1GB)\n".
 "[4] Load raw tables (don't download, load from 'mbdump/')\n".
 "[5] Apply table indexing\n".
-"[6] Initialise plugins\n\n".
+"[6] Apply table foreign keys\n".
+"[7] Initialise plugins\n\n".
 "Option: ";
 
 # action descriptions
@@ -72,6 +73,11 @@ $L{'init_actionindex'} =
 "The most time consuming option. This will apply indexing to your already loaded\n".
 "database. If using PostgreSQL, apply the index after you load the raw data because\n".
 "it is faster.... if you cancel, you can safely return by running this again.\n".
+"Ready to proceed? (y/n): ";
+
+$L{'init_actionfk'} =
+"One of the most time consuming option. This will apply foreign keys to your already loaded\n".
+"database. If you cancel, you can safely return by running this again.\n".
 "Ready to proceed? (y/n): ";
 
 $L{'init_actionplugininit'} =

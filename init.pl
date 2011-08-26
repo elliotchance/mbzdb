@@ -35,6 +35,8 @@ if($action == 1) {
 } elsif($action == 5) {
 	print $L{'init_actionindex'};
 } elsif($action == 6) {
+	print $L{'init_actionfk'};
+} elsif($action == 7) {
 	print $L{'init_actionplugininit'};
 }
 chomp(my $input = <STDIN>);
@@ -62,5 +64,7 @@ if($action == 1) {
 } elsif($action == 5) {
 	mbz_update_index();
 } elsif($action == 6) {
+	mbz_update_foreignkey();
+} elsif($action == 7) {
 	mbz_init_plugins();
 }

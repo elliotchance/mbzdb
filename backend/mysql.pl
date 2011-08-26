@@ -300,9 +300,18 @@ sub backend_mysql_update_index {
 	}
 	close(SQL);
 
+	print "Done\n";
+	return 1;
+}
+
+# backend_mysql_update_foreignkey()
+# Attemp to pull as much relevant information from CreateFKConstraints.sql as we can.
+# @return Always 1.
+sub backend_mysql_update_foreignkey {
 	open(SQL, "replication/CreateFKConstraints.sql");
 	chomp(my @lines = <SQL>);
 	my $index_name = "", $table_name = "", $columns = [], $foreign_table_name = "", $foreign_columns = [];
+
 	foreach my $line (@lines) {
 		# skip blank lines and single bracket lines
 		next if($line eq "" || substr($line, 0, 2) eq "--" || substr($line, 0, 1) eq "\\" ||
