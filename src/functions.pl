@@ -152,6 +152,8 @@ sub mbz_download_schema {
 	mbz_download_file($g_index_url, "replication/CreateIndexes.sql");
 	unlink("replication/CreatePrimaryKeys.sql");
 	mbz_download_file($g_pk_url, "replication/CreatePrimaryKeys.sql");
+	unlink("replication/CreateFKConstraints.sql");
+	mbz_download_file($g_indexfk_url, "replication/CreateFKConstraints.sql");
 	unlink("replication/CreateFunctions.sql");
 	mbz_download_file($g_func_url, "replication/CreateFunctions.sql");
 	unlink("replication/ReplicationSetup.sql");
@@ -818,6 +820,15 @@ sub mbz_update_index {
 	return (\&$function_name)->();
 }
 
+# mbz_update_foreignkey()
+# This subroutine is just a controller that redirects to the update index for the RDBMS we are
+# using.
+# @return Passthru from backend_DB_update_index().
+sub mbz_update_foreignkey {
+	# use the subroutine appropriate for the RDBMS
+	my $function_name = "backend_${g_db_rdbms}_update_foreignkey";
+	return (\&$function_name)->();
+}
 
 # mbz_update_schema()
 # This subroutine is just a controller that redirects to the update schema for the RDBMS we are

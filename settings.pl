@@ -26,6 +26,7 @@ $g_db_rdbms = 'mysql';
 # what you're doing.
 $schema_base = 'http://git.musicbrainz.org/gitweb/?p=musicbrainz-server.git;a=blob_plain';
 $g_schema_url = "$schema_base;f=admin/sql/CreateTables.sql;hb=master";
+$g_indexfk_url = "$schema_base;f=admin/sql/CreateFKConstraints.sql;hb=master";
 $g_index_url = "$schema_base;f=admin/sql/CreateIndexes.sql;hb=master";
 $g_pk_url = "$schema_base;f=admin/sql/CreatePrimaryKeys.sql;hb=master";
 $g_func_url = "$schema_base;f=admin/sql/CreateFunctions.sql;hb=master";
