@@ -1,6 +1,6 @@
-Please edit settings.pl to match your environment.
-Then edit settings_mysql.pl or settings_postgresql.pl to match your database environment.
-Run ./init.pl
+1- Edit settings.pl to match your environment.
+2- Edit settings_mysql.pl or settings_postgresql.pl to match your database environment.
+3- Run ./init.pl
 
 You may need to install the following CPAN modules in order to proceed:
 perl -MCPAN -e install LWP::UserAgent
