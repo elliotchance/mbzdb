@@ -18,7 +18,7 @@ print "mbzdb v$g_version ($g_build_date)\n\n";
 grabaction:
 print $L{'init_action'};
 chomp(my $action = <STDIN>);
-if($action !~ /^-?\d/ or $action < 0 or $action > 6) {
+if($action !~ /^-?\d/ or $action < 0 or $action > 7) {
 	print "Invalid\n\n";
 	goto grabaction;
 }
