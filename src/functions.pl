@@ -128,7 +128,7 @@ sub mbz_download_replication {
 	$localfile = "replication/replication-$id.tar.bz2";
 	$file = "replication-$id.tar.bz2";
 	
-	my $ftp = Net::FTP->new($g_rep_host, Timeout => 60)
+	my $ftp = Net::FTP->new($g_rep_host, Timeout => 60, Passive => 1)
 				or die "Cannot contact $host: $!";
 	$ftp->login('anonymous') or die "Can't login ($host): " . $ftp->message;
 	$ftp->cwd($g_rep_url)
