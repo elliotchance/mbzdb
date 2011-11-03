@@ -1,11 +1,12 @@
 Please edit settings.pl to match your environment.
+Then edit settings_mysql.pl or settings_postgresql.pl to match your database environment.
 Run ./init.pl
 
 You may need to install the following CPAN modules in order to proceed:
-perl -MCPAN -e 'install LWP::UserAgent'
-perl -MCPAN -e 'install DBI'
-perl -MCPAN -e 'install DBD::Pg'
-perl -MCPAN -e 'install DBD::mysql'
+perl -MCPAN -e install LWP::UserAgent
+perl -MCPAN -e install DBI
+perl -MCPAN -e install DBD::Pg
+perl -MCPAN -e install DBD::mysql
 
 ===== Version log =====
 5.0
