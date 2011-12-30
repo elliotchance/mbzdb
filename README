@@ -1,3 +1,5 @@
+FORK OF MBZDB : Fix problem when creating Table/Indexes/Pk
+
 1- Edit settings.pl to match your environment.
 2- Edit settings_mysql.pl or settings_postgresql.pl to match your database environment.
 3- Run ./init.pl
