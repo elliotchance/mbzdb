@@ -84,6 +84,20 @@ sub backend_mysql_index_exists {
 	return 0;
 }
 
+sub backend_mysql_primary_key_exists {
+        my $table_name = $_[0];
+
+        # yes I know this is a highly inefficent way to do it, but its simple and is only called on
+        # schema changes.
+        my $sth2 = $dbh->prepare("show indexes from `$table_name`");
+        $sth2->execute();
+        while(@result2 = $sth2->fetchrow_array()) {
+	        return 1 if($result2[2] eq 'PRIMARY');
+        }
+
+        # the index was not found
+        return 0;
+}
 
 # mbz_load_data()
 # Load the data from the mbdump files into the tables.
@@ -168,7 +182,11 @@ sub backend_mysql_table_column_exists {
 	my $sth = $dbh->prepare("describe `$table_name`");
 	$sth->execute();
 	while(@result = $sth->fetchrow_array()) {
-		return 1 if($result[0] eq $col_name);
+		if($col_name eq "PRIMARY") {
+			return 1 if($result[3] eq 'PRI');
+		} else {
+			return 1 if($result[0] eq $col_name);
+		}
 	}
 	
 	# table column was not found
@@ -205,7 +223,7 @@ sub backend_mysql_update_index {
 	open(SQL, "replication/CreateIndexes.sql");
 	chomp(my @lines = <SQL>);
 	
-	my $index_size = 256;
+	my $index_size = 200;
 	foreach my $line (@lines) {
 		$line = mbz_trim($line);
 		my $pos_index = index($line, 'INDEX ');
@@ -236,7 +254,7 @@ sub backend_mysql_update_index {
 		# TEXT then MySQL requires and index length.
 		my @columns = split(",", $cols);
 		for(my $i = 0; $i < @columns; ++$i) {
-			if(backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') {
+			if((backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') || (backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'varchar')  ) {
 				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)";
 			} else {
 				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
@@ -278,13 +296,13 @@ sub backend_mysql_update_index {
 		my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
 
 		# no need to create the index if it already exists
-		next if(backend_mysql_index_exists($index_name));
+		next if(backend_mysql_primary_key_exists($table_name));
 
 		# split and clean column names. this is also a good time to find out there type, if its
 		# TEXT then MySQL requires and index length.
 		my @columns = split(",", $cols);
 		for(my $i = 0; $i < @columns; ++$i) {
-			if(backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') {
+			if((backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text')  || (backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'varchar') ) {
 				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)";
 			} else {
 				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
@@ -364,7 +382,7 @@ sub backend_mysql_update_schema_from_file {
 	#       exists will be ignored. I'm not sure how important this is but its worth noting.
 	
 	# this is where it has to translate PostgreSQL to MySQL as well as making any modifications
-	# needed.
+	# needed
 	open(SQL, $_[0]);
 	chomp(my @lines = <SQL>);
 	my $table = "";
