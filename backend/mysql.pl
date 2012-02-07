@@ -386,13 +386,14 @@ sub backend_mysql_update_schema_from_file {
 	open(SQL, $_[0]);
 	chomp(my @lines = <SQL>);
 	my $table = "";
+	my $enums = ();
 	foreach my $line (@lines) {
 		# skip blank lines and single bracket lines
 		next if($line eq "" || $line eq "(" || substr($line, 0, 1) eq "\\");
 		
 		my $stmt = "";
 		if(substr($line, 0, 6) eq "CREATE" && index($line, "INDEX") < 0 &&
-			index($line, "AGGREGATE") < 0) {
+			index($line, "AGGREGATE") < 0 && index($line, "TYPE") < 0) {
 			$table = mbz_remove_quotes(substr($line, 13, length($line)));
 			if(substr($table, length($table) - 1, 1) eq '(') {
 				$table = substr($table, 0, length($table) - 1);
@@ -406,6 +407,15 @@ sub backend_mysql_update_schema_from_file {
 				$stmt .= " engine=$g_mysql_engine" if($g_mysql_engine ne '');
 				$stmt .= " tablespace $g_tablespace" if($g_tablespace ne '');
 			}
+		} elsif(substr($line, 0, 6) eq "CREATE" && index($line, "TYPE") > 0) {
+			my @p = split(" ", $line);
+                        $table = mbz_trim(@p[2]);
+			$content = substr($line, index($line, "AS") + 2, length($line));
+			$content = substr($content, 0, index($content,";"));
+                        print "Type $table -> $content\n";
+
+			$enums{$table} = $content;
+
 		} elsif(substr($line, 0, 1) eq " " || substr($line, 0, 1) eq "\t") {
 			my @parts = split(" ", $line);
 			for($i = 0; $i < @parts; ++$i) {
@@ -424,6 +434,7 @@ sub backend_mysql_update_schema_from_file {
 				if(uc(substr($parts[$i], 0, 7)) eq "VARCHAR" && index($line, '(') < 0) {
 					$parts[$i] = "TEXT";
 				}
+				$parts[$i] = $enums{$parts[$i]} if($i != 0 && exists($enums{$parts[$i]}));
 				$parts[$i] = "INT NOT NULL" if(uc(substr($parts[$i], 0, 6)) eq "SERIAL");
 				$parts[$i] = "CHAR(36)" if(uc(substr($parts[$i], 0, 4)) eq "UUID");
 				$parts[$i] = "TEXT" if(uc(substr($parts[$i], 0, 4)) eq "CUBE");
@@ -460,7 +471,8 @@ sub backend_mysql_update_schema_from_file {
 		}
 		
 		if(mbz_trim($stmt) ne "") {
-			$dbh->do($stmt) or print "";
+			mbz_do_sql($stmt);
+			#$dbh->do($stmt) or print "";
 		}
 	}
 	
