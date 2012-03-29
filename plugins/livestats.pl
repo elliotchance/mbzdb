@@ -78,7 +78,7 @@ sub livestats_init {
 	|);
 	
 	while(@result = $sth->fetchrow_array()) {
-		if($result[0] ne "livestats") {
+		if($result[0] ne "livestats" && substr($result[0],0,17) ne "over_art_presence") {
 			print "  Counting records for table $result[0]... ";
 			$table = mbz_escape_entity($result[0]);
 			
