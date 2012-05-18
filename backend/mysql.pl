@@ -387,11 +387,23 @@ sub backend_mysql_update_schema_from_file {
 	chomp(my @lines = <SQL>);
 	my $table = "";
 	my $enums = ();
+	my $ignore = 0;
 	foreach my $line (@lines) {
+		#print "$line\n";
+
 		# skip blank lines and single bracket lines
-		next if($line eq "" || $line eq "(" || substr($line, 0, 1) eq "\\");
+		next if($line eq "" || $line eq "(" || substr($line, 0, 1) eq "\\" || substr(mbz_trim($line), 0, 2) eq '--');
 		
-		my $stmt = "";
+		#If in ignore mode
+		if($ignore eq 1) {
+			if ( (index($line,",") > 0) || (index($line,";") > 0) ) {
+				$ignore = 0;
+			}
+			next;
+		}
+
+		my $stmt = '';
+
 		if(substr($line, 0, 6) eq "CREATE" && index($line, "INDEX") < 0 &&
 			index($line, "AGGREGATE") < 0 && index($line, "TYPE") < 0) {
 			$table = mbz_remove_quotes(substr($line, 13, length($line)));
@@ -415,10 +427,14 @@ sub backend_mysql_update_schema_from_file {
                         print "Type $table -> $content\n";
 
 			$enums{$table} = $content;
-
+		} elsif(substr(mbz_trim($line),0,5) eq "CHECK" || substr(mbz_trim($line),0,5) eq 'ALTER') {
+			#Ignore the line rest of lines
+			$ignore = 1;
 		} elsif(substr($line, 0, 1) eq " " || substr($line, 0, 1) eq "\t") {
+			
 			my @parts = split(" ", $line);
 			for($i = 0; $i < @parts; ++$i) {
+				
 				if(substr($parts[$i], 0, 2) eq "--") {
 					@parts = @parts[0 .. ($i - 1)];
 					last;
@@ -435,6 +451,7 @@ sub backend_mysql_update_schema_from_file {
 					$parts[$i] = "TEXT";
 				}
 				$parts[$i] = $enums{$parts[$i]} if($i != 0 && exists($enums{$parts[$i]}));
+				$parts[$i] = "VARCHAR(15)" if(uc(substr($parts[$i], 0, 13)) eq "CHARACTER(15)");
 				$parts[$i] = "INT NOT NULL" if(uc(substr($parts[$i], 0, 6)) eq "SERIAL");
 				$parts[$i] = "CHAR(36)" if(uc(substr($parts[$i], 0, 4)) eq "UUID");
 				$parts[$i] = "TEXT" if(uc(substr($parts[$i], 0, 4)) eq "CUBE");
@@ -461,7 +478,7 @@ sub backend_mysql_update_schema_from_file {
 			}
 			$stmt = "ALTER TABLE `$table` ADD $new_col " .
 				join(" ", @parts[1 .. @parts - 1]);
-				
+			
 			# no need to create the column if it already exists in the table
 			$stmt = "" if($table eq "" || mbz_table_column_exists($table, $parts[0]));
 		} elsif(substr($line, 0, 2) eq ");") {
