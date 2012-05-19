@@ -89,6 +89,7 @@ sub mbz_create_extra_tables {
 # @param $sql The SQL statement to be executed.
 # @return Passthru from $dbh::do().
 sub mbz_do_sql {
+	#print "[SQL] $_[0]\n";
 	my $result = $dbh->do($_[0]);
 	$result or mbz_sql_error($dbh->errstr, $_[0]) if($_[1] ne 'nodie');
 	return $result;
@@ -128,7 +129,7 @@ sub mbz_download_replication {
 	$localfile = "replication/replication-$id.tar.bz2";
 	$file = "replication-$id.tar.bz2";
 	
-	my $ftp = Net::FTP->new($g_rep_host, Timeout => 60)
+	my $ftp = Net::FTP->new($g_rep_host, Timeout => 60, Passive => 1)
 				or die "Cannot contact $host: $!";
 	$ftp->login('anonymous') or die "Can't login ($host): " . $ftp->message;
 	$ftp->cwd($g_rep_url)
@@ -653,7 +654,7 @@ sub mbz_sql_error {
 	return 0 if((substr($err, 0, 15) eq "Duplicate entry") && ($g_die_on_dupid == 0));
 
 	if($g_die_on_error == 1) {
-		die("SQL: '$stmt'\n\n");
+		die("[ERROR] SQL: '$stmt'\n\n");
 	} else {
 		warn("SQL: '$stmt'\n\n");
 	}
