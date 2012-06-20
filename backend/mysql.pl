@@ -115,7 +115,7 @@ sub backend_mysql_load_data {
 		next if($table eq "blank.file" || substr($table, 0, 1) eq '.');
 		next if( -d "./mbdump/$table");
 
-		if(backend_mysql_table_column_exists($file,"dummycolumn")
+		if(backend_mysql_table_column_exists($file,"dummycolumn"))
 		{
        			mbz_do_sql("ALTER TABLE `$table` DROP COLUM dummycolumn");
 		}
