@@ -117,7 +117,7 @@ sub backend_mysql_load_data {
 
 		if(backend_mysql_table_column_exists($file,"dummycolumn"))
 		{
-       			mbz_do_sql("ALTER TABLE `$table` DROP COLUM dummycolumn");
+       			mbz_do_sql("ALTER TABLE `$table` DROP COLUMN dummycolumn");
 		}
 
 		print "\n" . localtime() . ": Loading data into '$file' ($i of $count)...\n";
