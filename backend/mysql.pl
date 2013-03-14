@@ -119,8 +119,13 @@ sub backend_mysql_load_data {
 		{
        			mbz_do_sql("ALTER TABLE `$table` DROP COLUMN dummycolumn");
 		}
+		
+		if(substr($table, 0, 11) eq "statistics.")
+		{
+			$table = substr($table, 11, strlen($table) - 11);
+		}
 
-		print "\n" . localtime() . ": Loading data into '$file' ($i of $count)...\n";
+		print "\n" . localtime() . ": Loading data into '$table' ($i of $count)...\n";
 		mbz_do_sql("LOAD DATA LOCAL INFILE 'mbdump/$file' INTO TABLE `$table` ".
 		           "FIELDS TERMINATED BY '\\t' ".
 		           "ENCLOSED BY '' ".
