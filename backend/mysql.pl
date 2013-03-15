@@ -114,17 +114,17 @@ sub backend_mysql_load_data {
 		$table = $file;
 		next if($table eq "blank.file" || substr($table, 0, 1) eq '.');
 		next if( -d "./mbdump/$table");
-
-		if(backend_mysql_table_column_exists($file,"dummycolumn"))
-		{
-       			mbz_do_sql("ALTER TABLE `$table` DROP COLUMN dummycolumn");
-		}
 		
 		if(substr($table, 0, 11) eq "statistics.")
 		{
 			$table = substr($table, 11, strlen($table) - 11);
 		}
 
+		if(backend_mysql_table_column_exists($table,"dummycolumn"))
+		{
+       			mbz_do_sql("ALTER TABLE `$table` DROP COLUMN dummycolumn");
+		}
+		
 		print "\n" . localtime() . ": Loading data into '$table' ($i of $count)...\n";
 		mbz_do_sql("LOAD DATA LOCAL INFILE 'mbdump/$file' INTO TABLE `$table` ".
 		           "FIELDS TERMINATED BY '\\t' ".
