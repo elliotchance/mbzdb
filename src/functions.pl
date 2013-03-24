@@ -159,6 +159,8 @@ sub mbz_download_schema {
 	mbz_download_file($g_func_url, "replication/CreateFunctions.sql");
 	unlink("replication/ReplicationSetup.sql");
 	mbz_download_file($g_pending_url, "replication/ReplicationSetup.sql");
+	unlink("replication/StatisticsSetup.sql");
+	mbz_download_file($g_stats_url, "replication/StatisticsSetup.sql");
 	return 1;
 }
 
