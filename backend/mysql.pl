@@ -117,7 +117,7 @@ sub backend_mysql_load_data {
 		
 		if(substr($table, 0, 11) eq "statistics.")
 		{
-			$table = substr($table, 11, strlen($table) - 11);
+			$table = substr($table, 11, length($table) - 11);
 		}
 
 		if(backend_mysql_table_column_exists($table,"dummycolumn"))
