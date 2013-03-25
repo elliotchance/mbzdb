@@ -163,6 +163,8 @@ sub mbz_download_schema {
 	mbz_download_file($g_pending_url, "replication/ReplicationSetup.sql");
 	unlink("replication/StatisticsSetup.sql");
 	mbz_download_file($g_stats_url, "replication/StatisticsSetup.sql");
+	unlink("replication/CoverArtSetup.sql");
+	mbz_download_file($g_coverart_url, "replication/CoverArtSetup.sql");
 	return 1;
 }
 

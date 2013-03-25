@@ -526,6 +526,7 @@ sub backend_mysql_update_schema {
 	backend_mysql_update_schema_from_file("replication/CreateTables.sql");
 	backend_mysql_update_schema_from_file("replication/ReplicationSetup.sql");
 	backend_mysql_update_schema_from_file("replication/StatisticsSetup.sql");
+	backend_mysql_update_schema_from_file("replication/CoverArtSetup.sql");
 }
 
 
