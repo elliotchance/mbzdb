@@ -3,6 +3,8 @@
 use LWP::UserAgent;
 use Net::FTP;
 
+# turn on Perl autoflush
+$| = 1;
 
 # connect to the specific RDBMS.
 mbz_connect();
