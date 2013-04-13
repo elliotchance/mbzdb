@@ -1,28 +1,7 @@
 #!/usr/bin/perl -w
 
-use Getopt::Long;
+use lib "./lib";
+use MbzDb::Instance;
 
-my %options = mbzdb_get_command_line();
-mbzdb_print_usage() if $options{'help'};
-
-sub mbzdb_print_usage {
-    print "\nUsage: ./mbzdb [options]\n\n";
-    print "    --help   Show this help message.\n\n";
-    exit(1);
-}
-
-sub mbzdb_get_command_line {
-    # the default values
-    my %options = (
-        'help' => '',
-        'instance' => 'default'
-    );
-
-    # read the command line options
-    GetOptions(
-        "help" => \$options{'help'},
-        "instance=s" => \$options{'instance'}
-    );
-    
-    return %options;
-}
+my $instance = new MbzDb::Instance();
+$instance->startFromCommandLine();

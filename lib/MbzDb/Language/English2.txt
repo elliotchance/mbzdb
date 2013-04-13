@@ -2,33 +2,32 @@
 ## Language: English
 #############################################
 
-# Lanuage
-$L{'language'} = "English";
+# Language
+language = English
 
 ##-------------------------------------------
 ## Generic status updates
 ##-------------------------------------------
 
-$L{'done'} = "Done";
-$L{'error'} = "Error";
-$L{'table'} = "Table";
-$L{'alldone'} = "All done";
-$L{'downloadschema'} = "Downloading schema... ";
-$L{'restart_init'} = "Please restart init.pl";
-$L{'invalid'} = "Invalid input";
+done = Done
+error = Error
+table = Table
+alldone = All done
+downloadschema = "Downloading schema... "
+restart_init = Please restart init.pl
+invalid = Invalid input
 
 ##-------------------------------------------
 ## init.pl
 ##-------------------------------------------
 
 # Language changed
-$L{'langchanged'} = "Language changed. Please restart init.pl\n";
+langchanged = Language changed. Please restart init.pl\n
 
 # Welcome message
-$L{'init_welcome'} =
-"Welcome to mbzdb v1.0\n\n";
+init_welcome = Welcome to mbzdb v1.0\n\n
 
-$L{'init_firstboot'} =
+$L{'init_firstboot'} = +
 "*** Before proceeding create the database you wish to use. ***\n\n".
 "Values in square brackets indicate defaults, if you are unsure if\n".
 "the values are correct you may simply hit enter to continue.\n".

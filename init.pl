@@ -6,12 +6,6 @@ require "languages/$g_language.pl";
 require "backend/$g_db_rdbms.pl";
 require "src/functions.pl";
 
-mbz_create_folders();
-
-# first boot
-mbz_choose_language() if(!$g_chosenlanguage);
-mbz_first_boot() if($g_firstboot);
-
 # version info
 print "mbzdb v$g_version ($g_build_date)\n\n";
 

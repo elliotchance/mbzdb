@@ -854,15 +854,5 @@ sub mbz_update_schema {
 }
 
 
-# mbz_create_folders()
-# Create the required mbdump/ and replication/ folders if they do not exist
-# @return Always 1.
-sub mbz_create_folders {
-	mkdir("mbdump");
-	mkdir("replication");
-	return 1;
-}
-
-
 # be nice
 return 1;
