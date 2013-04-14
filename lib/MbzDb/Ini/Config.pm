@@ -13,7 +13,7 @@ our @EXPORT = qw();
 
 sub instanceExists {
     my ($self, $instanceName) = @_;
-    if($self->get($instanceName . ".db")) {
+    if($self->get($instanceName . "._db")) {
         return 1;
     }
     return 0;

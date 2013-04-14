@@ -62,7 +62,7 @@ sub init {
         die("An instance with that name '$name' already exists.");
     }
     
-    $self->{'ini'}->set("$name.db", $self->{'commandLineOptions'}{'db'});
+    $self->{'ini'}->set("$name._db", $self->{'commandLineOptions'}{'db'});
     while(my ($key, $value) = each %{$self->{'commandLineOptions'}{'options'}}) {
         $self->{'ini'}->set("$name.$key", $value);
     }

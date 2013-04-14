@@ -48,13 +48,19 @@ sub _save {
 sub get {
     my ($self, $name) = @_;
     $self->_load();
-    return 0;
+    
+    # find the key
+    foreach my $line (@{$self->{'file'}}) {
+        my ($k, $v) = MbzDb::Trim(split("=", $line));
+        return $v if($k eq $name);
+    }
+    
+    return undef;
 }
 
 sub set {
     my ($self, $name, $value) = @_;
     $self->_load();
-    #print Dumper($self->{'file'});
     push @{$self->{'file'}}, "$name = $value\n";
     $self->_save();
 }

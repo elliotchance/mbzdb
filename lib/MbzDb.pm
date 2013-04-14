@@ -10,6 +10,16 @@ sub Version {
     return "6.0";
 }
 
+sub Trim {
+    my @r;
+    foreach my $string (@_) {
+        $string =~ s/^\s+//;
+        $string =~ s/\s+$//;
+        push(@r, $string);
+    }
+	return @r;
+}
+
 sub GetSystemMoveCommand {
     return (($^O eq "MSWin32") ? "move" : "mv");
 }
