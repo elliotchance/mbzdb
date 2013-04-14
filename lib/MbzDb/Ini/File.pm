@@ -5,6 +5,7 @@ package MbzDb::Ini::File;
 use strict;
 use warnings;
 use Data::Dumper;
+use MbzDb::Logger;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -21,24 +22,26 @@ sub new {
 
 sub _load {
     my $self = shift;
+    my $logger = MbzDb::Logger::Get();
     
     # if the file does not exist then create it
     if(!(-e $self->{'location'})) {
-        open(FH, '>' . $self->{'location'}) or die "Can't create " . $self->{'location'} . ": $!";
+        open(FH, '>' . $self->{'location'}) or $logger->logFatal("Can't create " . $self->{'location'} . ": $!");
         close(FH);
         print "Created '" . $self->{'location'} . "'.\n";
     }
     
     # read whole file into memory
-    open my $fh, '<' . $self->{'location'} or die "Cannot load file: " . $self->{'location'} . "\n";
+    open my $fh, '<' . $self->{'location'} or $logger->logFatal("Cannot load file: " . $self->{'location'});
     @{$self->{'file'}} = <$fh>;
     close $fh;
 }
 
 sub _save {
     my $self = shift;
+    my $logger = MbzDb::Logger::Get();
     
-    open(FH, '>' . $self->{'location'}) or die "Can't create " . $self->{'location'} . ": $!";
+    open(FH, '>' . $self->{'location'}) or $logger->logFatal("Can't create " . $self->{'location'} . ": $!");
     foreach my $line (@{$self->{'file'}}) {
         print FH $line;
     }

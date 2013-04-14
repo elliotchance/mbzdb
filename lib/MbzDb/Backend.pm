@@ -16,7 +16,7 @@ sub GetClassByName {
         return 'MbzDb::Backend::MySQL';
     }
     
-    return '';
+    return undef;
 }
 
 1;

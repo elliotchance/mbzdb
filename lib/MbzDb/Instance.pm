@@ -9,6 +9,7 @@ use Data::Dumper;
 use MbzDb;
 use MbzDb::Backend;
 use MbzDb::Ini::Config;
+use MbzDb::Logger;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -23,6 +24,25 @@ sub new {
         'ini' => new MbzDb::Ini::Config($ENV{"HOME"} . '/mbzdb.ini')
     };
     return bless $self, $class;
+}
+
+sub getConfigOption {
+    my ($self, $name) = @_;
+    return $self->{'ini'}->get($name);
+}
+
+sub getInstanceName {
+    my $self = shift;
+    return $self->{'commandLineOptions'}{'instance'};
+}
+
+sub getInstanceOption {
+    my ($self, @names) = @_;
+    my @r;
+    foreach my $name (@names) {
+        push(@r, $self->getConfigOption($self->getInstanceName() . "." . $name));
+    }
+    return @r;
 }
 
 sub startFromCommandLine {
@@ -45,6 +65,7 @@ sub startFromCommandLine {
 # Setup a new MbzDb instance.
 sub init {
     my $self = shift;
+    my $logger = MbzDb::Logger::Get();
     
     # create the empty folders needed
     MbzDb::CreateFolders();
@@ -53,19 +74,26 @@ sub init {
     my $db = $self->{'commandLineOptions'}{'db'};
     my $class = MbzDb::Backend::GetClassByName($db);
     if(!$class) {
-        die("Bad --db option or not specified.\n");
+        $logger->logUserError("Bad --db option or not specified.");
+        exit(1);
     }
     
     # make sure the instance doesn't already exist
     my $name = $self->{'commandLineOptions'}{'instance'};
     if($self->{'ini'}->instanceExists($name)) {
-        die("An instance with that name '$name' already exists.");
+        $logger->logUserError("An instance with that name '$name' already exists.");
+        exit(1);
     }
     
     $self->{'ini'}->set("$name._db", $self->{'commandLineOptions'}{'db'});
     while(my ($key, $value) = each %{$self->{'commandLineOptions'}{'options'}}) {
         $self->{'ini'}->set("$name.$key", $value);
     }
+    
+    # launch the init
+    MbzDb::LoadModule($class);
+    my $obj = $class->new($self);
+    $obj->init();
     
     print "Done.\n";
 }

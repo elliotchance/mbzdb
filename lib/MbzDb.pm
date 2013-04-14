@@ -10,6 +10,14 @@ sub Version {
     return "6.0";
 }
 
+# http://stackoverflow.com/a/3470808/1470961
+sub LoadModule {
+    for (@_) {
+        (my $file = "$_.pm") =~ s{::}{/}g;
+        require $file;
+    }
+}
+
 sub Trim {
     my @r;
     foreach my $string (@_) {
