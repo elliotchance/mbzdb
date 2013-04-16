@@ -94,8 +94,10 @@ sub init {
     MbzDb::LoadModule($class);
     my $obj = $class->new($self);
     $obj->init();
-    $obj->rawDownload();
-    $obj->updateSchema();
+    #$obj->rawDownload();
+    
+    $obj->downloadSchema();
+    #$obj->updateSchema();
     
     print "Done.\n";
 }

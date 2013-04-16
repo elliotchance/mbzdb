@@ -5,6 +5,7 @@ package MbzDb::Backend;
 use strict;
 use warnings;
 use Net::FTP;
+use LWP::UserAgent;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -76,41 +77,105 @@ sub removeQuotes {
 sub rawDownload {
     my $self = shift;
 	my $host = 'ftp.musicbrainz.org';
-	my @files;
+    my $logger = MbzDb::Logger::Get();
 	
 	# find out the latest NGS
 	my $latest = "";
-	print "Logging into MusicBrainz FTP ($host)...\n";
-	my $ftp = Net::FTP->new($host, Timeout => 60) or die "Cannot contact $host: $!";
-	$ftp->login('anonymous') or die "Can't login ($host): " . $ftp->message;
-	$ftp->cwd('/pub/musicbrainz/data/fullexport/') or die "Can't change directory ($host): " . $ftp->message;
+	$logger->logInfo("Logging into MusicBrainz FTP ($host)...");
+	
+	# login
+	my $ftp = Net::FTP->new($host, Timeout => 60) or $logger->logFatal("Cannot contact $host: $!");
+	$ftp->login('anonymous') or $logger->logFatal("Can't login ($host): " . $ftp->message);
+	
+	# change directory
+	$ftp->cwd('/pub/musicbrainz/data/fullexport/')
+	    or $logger->logFatal("Can't change directory ($host): " . $ftp->message);
+	
+	# get directory listing
 	my @ls = $ftp->ls('-l latest*');
 	$latest = substr($ls[0], length($ls[0]) - 15, 15);
-	print "The latest is mbdump is '$latest'\n";
-	$ftp->cwd("/pub/musicbrainz/data/fullexport/$latest") or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
+	$logger->logInfo("The latest is mbdump is '$latest'");
+	$ftp->cwd("/pub/musicbrainz/data/fullexport/$latest")
+	    or $logger->logFatal("Can't change directory (ftp.musicbrainz.org): " . $ftp->message);
 			
-	@files = (
+	my @files = (
 		'mbdump-stats.tar.bz2',
-		'mbdump-derived.tar.bz2',
-		'mbdump.tar.bz2'
+		#'mbdump-derived.tar.bz2',
+		#'mbdump.tar.bz2'
 	);
 	
 	# probably need this
 	$ftp->binary();
 	
 	foreach my $file (@files) {
-		print localtime() . ": Downloading $file... ";
+		$logger->logInfo("Downloading $file...");
 		
 		# if the file exists, don't download it again
 		if(-e "replication/$file") {
-			print "File already downloaded\n";
+			$logger->logInfo("File already downloaded");
 		} else {
-			#$ftp->get($file, "replication/$file") or die("Unable to download file $file: " . $ftp->message);
-			print "Done\n";
+			$ftp->get($file, "replication/$file")
+			    or $logger->logFatal("Unable to download file $file: " . $ftp->message);
+			$logger->logInfo("Done");
 		}
 	}
 	
 	return 1;
+}
+
+sub getSchemaFiles {
+    my $self = shift;
+    
+    my $schema_base = 'http://git.musicbrainz.org/gitweb/?p=musicbrainz-server.git;a=blob_plain';
+    my %files = (
+        "$schema_base;f=admin/sql/CreateTables.sql;hb=master" => "replication/CreateTables.sql",
+        "$schema_base;f=admin/sql/CreateFKConstraints.sql;hb=master" => "replication/CreateFKConstraints.sql",
+        "$schema_base;f=admin/sql/CreateIndexes.sql;hb=master" => "replication/CreateIndexes.sql",
+        "$schema_base;f=admin/sql/CreatePrimaryKeys.sql;hb=master" => "replication/CreatePrimaryKeys.sql",
+        "$schema_base;f=admin/sql/CreateFunctions.sql;hb=master" => "replication/CreateFunctions.sql",
+        "$schema_base;f=admin/sql/ReplicationSetup.sql;hb=master" => "replication/ReplicationSetup.sql",
+        "$schema_base;f=admin/sql/statistics/CreateTables.sql;hb=master" => "replication/StatisticsSetup.sql",
+        "$schema_base;f=admin/sql/caa/CreateTables.sql;hb=master" => "replication/CoverArtSetup.sql"
+    );
+    
+    return %files;
+}
+
+# downloadSchema()
+# This function will download the original MusicBrainz PostgreSQL SQL commands to create tables,
+# indexes and PL/pgSQL. It will later be converted for the RDBMS we are using.
+# @return Always 1.
+sub downloadSchema {
+    my $self = shift;
+    my %files = $self->getSchemaFiles();
+    
+    while(my ($url, $location) = each %files) {
+	    unlink($location);
+	    $self->downloadFile($url, $location);
+    }
+    
+	return 1;
+}
+
+# downloadFile($url, $location)
+# Generic function to download a file.
+# @param $url The URL to fetch from.
+# @param $location File path to save downloaded file to.
+# @return Response result.
+sub downloadFile {
+    my ($self, $url, $location) = shift;
+	my $ua = LWP::UserAgent->new();
+	my $request = HTTP::Request->new('GET', $_[0]);
+	my $resp = $ua->request($request, $_[1]);
+    my $logger = MbzDb::Logger::Get();
+
+	if($resp->is_success) {
+		$logger->logInfo("Downloaded " . $_[1]);
+		return $resp;
+	}
+	else {
+		$logger->logFatal('Error downloading ' . $_[0] . ': ' . $resp->status_line);
+	}
 }
 
 1;

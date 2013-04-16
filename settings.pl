@@ -22,18 +22,6 @@ $g_db_rdbms = 'mysql';
 	# eg. 'trmids'
 );
 
-# Schema. This is where the SQL scripts to create the schema come from, only edit this if you know
-# what you're doing.
-$schema_base = 'http://git.musicbrainz.org/gitweb/?p=musicbrainz-server.git;a=blob_plain';
-$g_schema_url = "$schema_base;f=admin/sql/CreateTables.sql;hb=master";
-$g_indexfk_url = "$schema_base;f=admin/sql/CreateFKConstraints.sql;hb=master";
-$g_index_url = "$schema_base;f=admin/sql/CreateIndexes.sql;hb=master";
-$g_pk_url = "$schema_base;f=admin/sql/CreatePrimaryKeys.sql;hb=master";
-$g_func_url = "$schema_base;f=admin/sql/CreateFunctions.sql;hb=master";
-$g_pending_url = "$schema_base;f=admin/sql/ReplicationSetup.sql;hb=master";
-$g_stats_url = "$schema_base;f=admin/sql/statistics/CreateTables.sql;hb=master";
-$g_coverart_url = "$schema_base;f=admin/sql/caa/CreateTables.sql;hb=master";
-
 # Replications URL
 $g_rep_host = "ftp.musicbrainz.org";
 $g_rep_url = "/pub/musicbrainz/data/replication";

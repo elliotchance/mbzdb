@@ -98,24 +98,6 @@ sub mbz_do_sql {
 }
 
 
-# mbz_download_file($url, $location)
-# Generic function to download a file.
-# @param $url The URL to fetch from.
-# @param $location File path to save downloaded file to.
-# @return Response result.
-sub mbz_download_file {
-	my $ua = LWP::UserAgent->new();
-	my $request = HTTP::Request->new('GET', $_[0]);
-	my $resp = $ua->request($request, $_[1]);
-
-	if($resp->is_success) {
-		return $resp;
-	} else {
-		die 'Error downloading ' . $_[0] . ': ' . $resp->status_line;
-	}
-}
-
-
 # mbz_download_replication($id)
 # Download a single replication.
 # @param $id The replication ID to download, this will be the NEXT replication ID not the current
@@ -141,33 +123,6 @@ sub mbz_download_replication {
 	
 	print "Done\n";
 	return $found;
-}
-
-
-# mbz_download_schema()
-# This function will download the original MusicBrainz PostgreSQL SQL commands to create tables,
-# indexes and PL/pgSQL. It will later be converted for the RDBMS we are using.
-# @return Always 1.
-sub mbz_download_schema {
-	# TODO: We must download other SQL files (e.g. Functions and Indexes) for CoverArt and Statistics
-	# This variable organization $g_xxx_url might not work anymore. It should be best to split this into a subfunction.
-	unlink("replication/CreateTables.sql");
-	mbz_download_file($g_schema_url, "replication/CreateTables.sql");
-	unlink("replication/CreateIndexes.sql");
-	mbz_download_file($g_index_url, "replication/CreateIndexes.sql");
-	unlink("replication/CreatePrimaryKeys.sql");
-	mbz_download_file($g_pk_url, "replication/CreatePrimaryKeys.sql");
-	unlink("replication/CreateFKConstraints.sql");
-	mbz_download_file($g_indexfk_url, "replication/CreateFKConstraints.sql");
-	unlink("replication/CreateFunctions.sql");
-	mbz_download_file($g_func_url, "replication/CreateFunctions.sql");
-	unlink("replication/ReplicationSetup.sql");
-	mbz_download_file($g_pending_url, "replication/ReplicationSetup.sql");
-	unlink("replication/StatisticsSetup.sql");
-	mbz_download_file($g_stats_url, "replication/StatisticsSetup.sql");
-	unlink("replication/CoverArtSetup.sql");
-	mbz_download_file($g_coverart_url, "replication/CoverArtSetup.sql");
-	return 1;
 }
 
 
