@@ -78,6 +78,7 @@ sub updateSchemaFromFile {
 	my $table = "";
 	my $enums = ();
 	my $ignore = 0;
+	my $inCreateTable = 0;
 	foreach my $line (@lines) {
 		# skip blank lines and single bracket lines
 		my $tline = MbzDb::Trim($line);
@@ -93,23 +94,24 @@ sub updateSchemaFromFile {
 
 		my $stmt = '';
 
-		if(substr($line, 0, 6) eq "CREATE" && index($line, "INDEX") < 0 && index($line, "AGGREGATE") < 0 && index($line, "TYPE") < 0) {
-			$table = $self->removeQuotes(substr($line, 13, length($line)));
-			if(substr($table, length($table) - 1, 1) eq '(') {
-				$table = substr($table, 0, length($table) - 1);
-			}
-			$table = MbzDb::Trim($table);
-			
-			# do not create the table if it already exists
-			if(!$self->tableExists($table)) {
-				$stmt = "CREATE TABLE `$table` (dummycolumn int)";
-				
+		if($tline =~ /^CREATE\s+TABLE/) {
+            $table = $self->removeQuotes(substr($line, 13, length($line)));
+            if(substr($table, length($table) - 1, 1) eq '(') {
+                $table = substr($table, 0, length($table) - 1);
+            }
+            $table = MbzDb::Trim($table);
+            $inCreateTable = 1;
+        
+            # do not create the table if it already exists
+            if(!$self->tableExists($table)) {
+                $stmt = "CREATE TABLE `$table` (dummycolumn int)";
+            
                 my ($engine, $tablespace) = $self->{'instance'}->getInstanceOption('engine', 'tablespace');
-				$stmt .= " engine=$engine" if($engine);
-				$stmt .= " tablespace $tablespace" if($tablespace);
-			}
+                $stmt .= " engine=$engine" if($engine);
+                $stmt .= " tablespace $tablespace" if($tablespace);
+            }
 		}
-		elsif(substr($line, 0, 6) eq "CREATE" && index($line, "TYPE") > 0) {
+		elsif($tline =~ /^CREATE\s+TYPE/) {
 			my @p = split(" ", $line);
             $table = MbzDb::Trim($p[2]);
 			my $content = substr($line, index($line, "AS") + 2, length($line));
@@ -121,7 +123,7 @@ sub updateSchemaFromFile {
 			# ignore the line rest of lines
 			$ignore = 1;
 		}
-		elsif($line =~ /^\s*\w+\s+\w+/) {
+		elsif($line =~ /^\s*\w+\s+\w+/ && $inCreateTable) {
 			my @parts = split(" ", $line);
 			for(my $i = 0; $i < @parts; ++$i) {
 				if(substr($parts[$i], 0, 2) eq "--") {
@@ -175,6 +177,7 @@ sub updateSchemaFromFile {
 			if($table && $self->tableColumnExists($table, "dummycolumn")) {
 				$stmt = "ALTER TABLE `$table` DROP dummycolumn";
 			}
+			$inCreateTable = 0;
 		}
 		
 		$self->do($stmt) if(MbzDb::Trim($stmt) ne "");
@@ -224,6 +227,22 @@ sub tableExists {
 	
 	# table was not found
 	return 0;
+}
+
+sub getSchemaFiles {
+    my $self = shift;
+    
+    my $schema_base = 'http://git.musicbrainz.org/gitweb/?p=musicbrainz-server.git;a=blob_plain';
+    my %files = (
+        "$schema_base;f=admin/sql/CreateTables.sql;hb=master" => "replication/CreateTables.sql",
+        "$schema_base;f=admin/sql/CreateIndexes.sql;hb=master" => "replication/CreateIndexes.sql",
+        "$schema_base;f=admin/sql/CreatePrimaryKeys.sql;hb=master" => "replication/CreatePrimaryKeys.sql",
+        "$schema_base;f=admin/sql/ReplicationSetup.sql;hb=master" => "replication/ReplicationSetup.sql",
+        "$schema_base;f=admin/sql/statistics/CreateTables.sql;hb=master" => "replication/StatisticsSetup.sql",
+        "$schema_base;f=admin/sql/caa/CreateTables.sql;hb=master" => "replication/CoverArtSetup.sql"
+    );
+    
+    return %files;
 }
 
 1;

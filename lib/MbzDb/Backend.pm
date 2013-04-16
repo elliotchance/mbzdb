@@ -128,14 +128,14 @@ sub getSchemaFiles {
     
     my $schema_base = 'http://git.musicbrainz.org/gitweb/?p=musicbrainz-server.git;a=blob_plain';
     my %files = (
-        "$schema_base;f=admin/sql/CreateTables.sql;hb=master" => "replication/CreateTables.sql"
-        #"$schema_base;f=admin/sql/CreateFKConstraints.sql;hb=master" => "replication/CreateFKConstraints.sql",
-        #"$schema_base;f=admin/sql/CreateIndexes.sql;hb=master" => "replication/CreateIndexes.sql",
-        #"$schema_base;f=admin/sql/CreatePrimaryKeys.sql;hb=master" => "replication/CreatePrimaryKeys.sql",
-        #"$schema_base;f=admin/sql/CreateFunctions.sql;hb=master" => "replication/CreateFunctions.sql",
-        #"$schema_base;f=admin/sql/ReplicationSetup.sql;hb=master" => "replication/ReplicationSetup.sql",
-        #"$schema_base;f=admin/sql/statistics/CreateTables.sql;hb=master" => "replication/StatisticsSetup.sql",
-        #"$schema_base;f=admin/sql/caa/CreateTables.sql;hb=master" => "replication/CoverArtSetup.sql"
+        "$schema_base;f=admin/sql/CreateTables.sql;hb=master" => "replication/CreateTables.sql",
+        "$schema_base;f=admin/sql/CreateFKConstraints.sql;hb=master" => "replication/CreateFKConstraints.sql",
+        "$schema_base;f=admin/sql/CreateIndexes.sql;hb=master" => "replication/CreateIndexes.sql",
+        "$schema_base;f=admin/sql/CreatePrimaryKeys.sql;hb=master" => "replication/CreatePrimaryKeys.sql",
+        "$schema_base;f=admin/sql/CreateFunctions.sql;hb=master" => "replication/CreateFunctions.sql",
+        "$schema_base;f=admin/sql/ReplicationSetup.sql;hb=master" => "replication/ReplicationSetup.sql",
+        "$schema_base;f=admin/sql/statistics/CreateTables.sql;hb=master" => "replication/StatisticsSetup.sql",
+        "$schema_base;f=admin/sql/caa/CreateTables.sql;hb=master" => "replication/CoverArtSetup.sql"
     );
     
     return %files;
