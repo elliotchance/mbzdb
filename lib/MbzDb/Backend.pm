@@ -19,4 +19,8 @@ sub GetClassByName {
     return undef;
 }
 
+sub init {
+    return 1;
+}
+
 1;

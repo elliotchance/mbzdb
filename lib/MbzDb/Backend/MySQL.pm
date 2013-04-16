@@ -24,9 +24,21 @@ sub connect {
     my $logger = MbzDb::Logger::Get();
     
     if(!$self->{'dbh'}) {
-        my ($db, $user, $pass) = $self->{'instance'}->getInstanceOption('db', 'user', 'pass');
-        $self->{'dbh'} = DBI->connect("DBI:mysql:$db", $user, $pass, { RaiseError => 1 })
+        my ($driver, $db, $user, $pass) = $self->{'instance'}->getInstanceOption('driver', 'db', 'user', 'pass');
+        
+        # set the default driver is the user didn't give us a specific one
+        $driver = 'mysql' if(!$driver);
+        
+        # make connection
+        $self->{'dbh'} = DBI->connect("dbi:$driver:database=;host=localhost", $user, $pass,
+            { RaiseError => 1, PrintError => 0 })
             or $logger->logFatal("Could not connect to database: $DBI::errstr");
+            
+        # try to create the database
+        eval {
+            $self->do("CREATE DATABASE $db");
+        };
+        $self->do("USE $db");
     }
 }
 
@@ -37,6 +49,9 @@ sub DESTROY {
 
 sub do {
     my ($self, $sql) = @_;
+    my $logger = MbzDb::Logger::Get();
+    
+    $logger->logInfo("SQL: $sql");
     return $self->{'dbh'}->do($sql);
 }
 
@@ -47,8 +62,7 @@ sub init {
     $self->connect();
     
     # create the database
-    my $db = $self->{'instance'}->getInstanceOption('db');
-    $self->do("CREATE DATABASE $db");
+    my ($db) = $self->{'instance'}->getInstanceOption('db');
 }
 
 1;

@@ -55,6 +55,9 @@ sub log {
     my ($self, $severity, $message) = @_;
     my $ts = strftime("%F %T", localtime($^T));
     print "$ts [" . MbzDb::Logger::GetSeverityWord($severity) . "] $message\n";
+    
+    # always flush for log messages
+    select(STDOUT);
 }
 
 sub logDebug {
