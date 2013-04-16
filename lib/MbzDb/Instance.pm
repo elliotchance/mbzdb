@@ -98,12 +98,13 @@ sub init {
     $obj->init();
     
     # download and install schema
-    $obj->downloadSchema();
-    $obj->updateSchema();
+    #$obj->downloadSchema();
+    #$obj->updateSchema();
     
     # download and load data
-    $obj->downloadData();
-    $obj->unzipData();
+    #$obj->downloadData();
+    #$obj->unzipData();
+    $obj->loadData();
     
     print "Done.\n";
 }

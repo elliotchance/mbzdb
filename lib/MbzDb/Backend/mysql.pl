@@ -86,51 +86,6 @@ sub backend_mysql_primary_key_exists {
         return 0;
 }
 
-# mbz_load_data()
-# Load the data from the mbdump files into the tables.
-sub backend_mysql_load_data {
-	my $temp_time = time();
-
-	opendir(DIR, "mbdump") || die "Can't open ./mbdump: $!";
-	my @files = sort(grep { $_ ne '.' and $_ ne '..' } readdir(DIR));
-	my $count = @files;
-	my $i = 1;
-
-	foreach my $file (@files) {
-		my $t1 = time();
-		$table = $file;
-		next if($table eq "blank.file" || substr($table, 0, 1) eq '.');
-		next if( -d "./mbdump/$table");
-		
-		if(substr($table, 0, 11) eq "statistics.")
-		{
-			$table = substr($table, 11, length($table) - 11);
-		}
-
-		if(backend_mysql_table_column_exists($table,"dummycolumn"))
-		{
-       			mbz_do_sql("ALTER TABLE `$table` DROP COLUMN dummycolumn");
-		}
-		
-		print "\n" . localtime() . ": Loading data into '$table' ($i of $count)...\n";
-		mbz_do_sql("LOAD DATA LOCAL INFILE 'mbdump/$file' INTO TABLE `$table` ".
-		           "FIELDS TERMINATED BY '\\t' ".
-		           "ENCLOSED BY '' ".
-		           "ESCAPED BY '\\\\' ".
-		           "LINES TERMINATED BY '\\n' ".
-		           "STARTING BY ''");
-
-		my $t2 = time();
-		print "Done (" . mbz_format_time($t2 - $t1) . ")\n";
-		++$i;
-	}
-
-	# clean up
-	closedir(DIR);
-	my $t2 = time();
-	print "\nComplete (" . mbz_format_time($t2 - $temp_time) . ")\n";
-}
-
 
 # mbz_load_pending($id)
 # Load Pending and PendingData from the downaloded replication into the respective tables. This

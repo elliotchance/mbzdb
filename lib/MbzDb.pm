@@ -59,4 +59,24 @@ sub CreateFolders {
 	return 1;
 }
 
+# FormatTime()
+# Translate seconds into "hours h minutes m seconds s"
+# @return Formatted interval.
+sub FormatTime {
+	my $left = $_[0];
+	my $hours = int($left / 3600);
+	$left -= $hours * 3600;
+	my $mins = int($left / 60);
+	$left -= $mins * 60;
+	my $secs = int($left);
+	
+	my $r = "";
+	$r .= $hours . "h " if($hours > 0);
+	$r .= " " if($mins < 10);
+	$r .= $mins . "m ";
+	$r .= " " if($secs < 10);
+	$r .= $secs . "s";
+	return $r;
+}
+
 1;

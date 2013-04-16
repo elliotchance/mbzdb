@@ -6,6 +6,7 @@ use strict;
 use warnings;
 use DBI;
 use MbzDb::Backend;
+use Cwd;
 
 require Exporter;
 our @ISA = qw(MbzDb::Backend);
@@ -31,7 +32,7 @@ sub connect {
         $driver = 'mysql' if(!$driver);
         
         # make connection
-        $self->{'dbh'} = DBI->connect("dbi:$driver:database=;host=localhost;mysql_local_infile=1", $user, $pass,
+        $self->{'dbh'} = DBI->connect("dbi:$driver:database=;host=localhost", $user, $pass,
             { RaiseError => 1, PrintError => 0 })
             or $logger->logFatal("Could not connect to database: $DBI::errstr");
             
@@ -56,6 +57,9 @@ sub do {
     return $self->{'dbh'}->do($sql);
 }
 
+# init()
+# This is called when --init is used from the command line. It is responsible for anything that is
+# required to setup the environment before the schema is allied and data is loaded in.
 sub init {
     my $self = shift;
     
@@ -243,6 +247,61 @@ sub getSchemaFiles {
     );
     
     return %files;
+}
+
+# loadData()
+# Load the data from the mbdump files into the tables.
+sub loadData {
+    my $self = shift;
+	my $temp_time = time();
+    my $logger = MbzDb::Logger::Get();
+
+	opendir(DIR, "mbdump") or $logger->logFatal("Can't open ./mbdump: $!");
+	my @files = sort(grep { $_ ne '.' and $_ ne '..' } readdir(DIR));
+	my $count = @files;
+	my $i = 1;
+
+	foreach my $file (@files) {
+		my $t1 = time();
+		my $table = $file;
+		next if($table eq "blank.file" || substr($table, 0, 1) eq '.');
+		next if(-d "./mbdump/$table");
+		
+		if(substr($table, 0, 11) eq "statistics.") {
+			$table = substr($table, 11, length($table) - 11);
+		}
+
+		if($self->tableColumnExists($table, "dummycolumn")) {
+       		$self->do("ALTER TABLE `$table` DROP COLUMN dummycolumn");
+		}
+		
+		# if the table has any data then it is skipped
+        my $sth = $self->{'dbh'}->prepare("SELECT COUNT(*) FROM `$table`");
+        $sth->execute();
+        my @result = $sth->fetchrow_array();
+        if($result[0] > 0) {
+		    $logger->logInfo("Table '$table' already contains records, skipping.");
+		    next;
+        }
+		
+		$logger->logInfo("Loading data into '$table' ($i of $count)...");
+		$file = getcwd() . "/mbdump/$file";
+		$self->do("LOAD DATA INFILE '$file' INTO TABLE `$table` ".
+		          "FIELDS TERMINATED BY '\\t' ".
+		          "ENCLOSED BY '' ".
+		          "ESCAPED BY '\\\\' ".
+		          "LINES TERMINATED BY '\\n' ".
+		          "STARTING BY ''");
+
+		my $t2 = time();
+		$logger->logInfo("Done (" . MbzDb::FormatTime($t2 - $t1) . ")");
+		++$i;
+	}
+
+	# clean up
+	closedir(DIR);
+	my $t2 = time();
+	print "\nComplete (" . MbzDb::FormatTime($t2 - $temp_time) . ")\n";
 }
 
 1;

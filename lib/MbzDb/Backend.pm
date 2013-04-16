@@ -21,13 +21,6 @@ sub GetClassByName {
     return undef;
 }
 
-# init()
-# This is called when --init is used from the command line. It is responsible for anything that is
-# required to setup the environment before the schema is allied and data is loaded in.
-sub init {
-    return 1;
-}
-
 # updateSchema()
 # Attempt to update the schema from the current version to a new version by creating a table with a
 # dummy field, altering the tables by adding one field at a time them removing the dummy field. The
@@ -49,12 +42,6 @@ sub updateSchema {
     }
 	
 	return 1;
-}
-
-# updateSchemaFromFile($path)
-# Override this with your backend specific implementation.
-sub updateSchemaFromFile {
-    return 1;
 }
 
 # removeQuotes($str)
