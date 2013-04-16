@@ -82,7 +82,7 @@ sub init {
     my $name = $self->{'commandLineOptions'}{'instance'};
     if($self->{'ini'}->instanceExists($name)) {
         $logger->logUserError("An instance with that name '$name' already exists.");
-        exit(1);
+        #exit(1);
     }
     
     $self->{'ini'}->set("$name._db", $self->{'commandLineOptions'}{'db'});
@@ -97,7 +97,7 @@ sub init {
     #$obj->rawDownload();
     
     $obj->downloadSchema();
-    #$obj->updateSchema();
+    $obj->updateSchema();
     
     print "Done.\n";
 }

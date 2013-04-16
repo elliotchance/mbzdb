@@ -590,18 +590,6 @@ sub mbz_table_exists {
 }
 
 
-# mbz_trim($string)
-# Based on the PHP function trim() to chop whitespace off the left and right.
-# @param $string The string to trim.
-# @return A new copy of the trimmed string.
-sub mbz_trim {
-	my $string = shift;
-	$string =~ s/^\s+//;
-	$string =~ s/\s+$//;
-	return $string;
-}
-
-
 # mbz_unpack_data($packed)
 # Given a packed string from pending data this subroutine unpacks it into a hash of
 # columnname => value.

@@ -68,21 +68,24 @@ sub updateSchemaFromFile {
 	#       exists will be ignored. I'm not sure how important this is but its worth noting.
 	my ($self, $path) = @_;
 	my %enums;
+    my $logger = MbzDb::Logger::Get();
 	
-	# this is where it has to translate PostgreSQL to MySQL as well as making any modifications
-	# needed
-	open(SQL, $path);
-	chomp(my @lines = <SQL>);
+    # read whole file into memory
+    open my $fh,"< $path" or $logger->logFatal("Cannot open file: $path");
+    chomp(my @lines = <$fh>);
+    close $fh;
+	
 	my $table = "";
 	my $enums = ();
 	my $ignore = 0;
 	foreach my $line (@lines) {
 		# skip blank lines and single bracket lines
-		next if($line eq "" || $line eq "(" || substr($line, 0, 1) eq "\\" || substr(MbzDb::Trim($line), 0, 2) eq '--');
+		my $tline = MbzDb::Trim($line);
+		next if($tline eq "" || $tline eq "(" || substr($tline, 0, 1) eq "\\" || substr($tline, 0, 2) eq '--');
 		
-		#If in ignore mode
-		if($ignore eq 1) {
-			if ( (index($line,",") > 0) || (index($line,";") > 0) ) {
+		# if in ignore mode
+		if($ignore) {
+			if((index($line, ",") > 0) || (index($line, ";") > 0)) {
 				$ignore = 0;
 			}
 			next;
@@ -90,14 +93,12 @@ sub updateSchemaFromFile {
 
 		my $stmt = '';
 
-		if(substr($line, 0, 6) eq "CREATE" && index($line, "INDEX") < 0 &&
-			index($line, "AGGREGATE") < 0 && index($line, "TYPE") < 0) {
+		if(substr($line, 0, 6) eq "CREATE" && index($line, "INDEX") < 0 && index($line, "AGGREGATE") < 0 && index($line, "TYPE") < 0) {
 			$table = $self->removeQuotes(substr($line, 13, length($line)));
 			if(substr($table, length($table) - 1, 1) eq '(') {
 				$table = substr($table, 0, length($table) - 1);
 			}
 			$table = MbzDb::Trim($table);
-			print "Table $table\n";
 			
 			# do not create the table if it already exists
 			if(!$self->tableExists($table)) {
@@ -113,15 +114,14 @@ sub updateSchemaFromFile {
             $table = MbzDb::Trim($p[2]);
 			my $content = substr($line, index($line, "AS") + 2, length($line));
 			$content = substr($content, 0, index($content,";"));
-            print "Type $table -> $content\n";
 
 			$enums{$table} = $content;
 		}
-		elsif(substr(MbzDb::Trim($line),0,5) eq "CHECK" || substr(MbzDb::Trim($line),0,5) eq 'ALTER') {
+		elsif(substr(MbzDb::Trim($line), 0, 5) eq "CHECK" || substr(MbzDb::Trim($line), 0, 5) eq 'ALTER') {
 			# ignore the line rest of lines
 			$ignore = 1;
 		}
-		elsif(substr($line, 0, 1) eq " " || substr($line, 0, 1) eq "\t") {
+		elsif($line =~ /^\s*\w+\s+\w+/) {
 			my @parts = split(" ", $line);
 			for(my $i = 0; $i < @parts; ++$i) {
 				if(substr($parts[$i], 0, 2) eq "--") {
@@ -146,8 +146,8 @@ sub updateSchemaFromFile {
 				$parts[$i] = "TEXT" if(uc(substr($parts[$i], 0, 4)) eq "CUBE");
 				$parts[$i] = "CHAR(1)" if(uc(substr($parts[$i], 0, 4)) eq "BOOL");
 				$parts[$i] = "VARCHAR(256)" if(uc($parts[$i]) eq "INTERVAL");
-				$parts[$i] = "0" if(uc(substr($parts[$i], 0, 3)) eq "NOW");
-				$parts[$i] = "0" if(uc(substr($parts[$i], 1, 1)) eq "{");
+				$parts[$i] = "0" if(substr($parts[$i], 0, 3) && uc(substr($parts[$i], 0, 3)) eq "NOW");
+				$parts[$i] = "0" if(length($parts[$i]) > 1 && substr($parts[$i], 1, 1) && uc(substr($parts[$i], 1, 1)) eq "{");
 				$parts[$i] = $parts[$i + 1] = $parts[$i + 2] = "" if(uc($parts[$i]) eq "WITH");
 				if(uc($parts[$i]) eq "VARCHAR" && substr($parts[$i + 1], 0, 1) ne "(") {
 					$parts[$i] = "TEXT";
@@ -172,7 +172,7 @@ sub updateSchemaFromFile {
 			$stmt = "" if($table eq "" || $self->tableColumnExists($table, $parts[0]));
 		}
 		elsif(substr($line, 0, 2) eq ");") {
-			if($table ne "" && $self->tableColumnExists($table, "dummycolumn")) {
+			if($table && $self->tableColumnExists($table, "dummycolumn")) {
 				$stmt = "ALTER TABLE `$table` DROP dummycolumn";
 			}
 		}

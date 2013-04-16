@@ -42,11 +42,11 @@ sub init {
 # to create (and replace) them. This is just so all the error messages and so nasty.
 sub updateSchema {
     my $self = shift;
+    my %files = $self->getSchemaFiles();
     
-	$self->updateSchemaFromFile("replication/CreateTables.sql");
-	$self->updateSchemaFromFile("replication/ReplicationSetup.sql");
-	$self->updateSchemaFromFile("replication/StatisticsSetup.sql");
-	$self->updateSchemaFromFile("replication/CoverArtSetup.sql");
+    while(my ($url, $location) = each %files) {
+	    $self->updateSchemaFromFile($location);
+    }
 	
 	return 1;
 }
@@ -128,14 +128,14 @@ sub getSchemaFiles {
     
     my $schema_base = 'http://git.musicbrainz.org/gitweb/?p=musicbrainz-server.git;a=blob_plain';
     my %files = (
-        "$schema_base;f=admin/sql/CreateTables.sql;hb=master" => "replication/CreateTables.sql",
-        "$schema_base;f=admin/sql/CreateFKConstraints.sql;hb=master" => "replication/CreateFKConstraints.sql",
-        "$schema_base;f=admin/sql/CreateIndexes.sql;hb=master" => "replication/CreateIndexes.sql",
-        "$schema_base;f=admin/sql/CreatePrimaryKeys.sql;hb=master" => "replication/CreatePrimaryKeys.sql",
-        "$schema_base;f=admin/sql/CreateFunctions.sql;hb=master" => "replication/CreateFunctions.sql",
-        "$schema_base;f=admin/sql/ReplicationSetup.sql;hb=master" => "replication/ReplicationSetup.sql",
-        "$schema_base;f=admin/sql/statistics/CreateTables.sql;hb=master" => "replication/StatisticsSetup.sql",
-        "$schema_base;f=admin/sql/caa/CreateTables.sql;hb=master" => "replication/CoverArtSetup.sql"
+        "$schema_base;f=admin/sql/CreateTables.sql;hb=master" => "replication/CreateTables.sql"
+        #"$schema_base;f=admin/sql/CreateFKConstraints.sql;hb=master" => "replication/CreateFKConstraints.sql",
+        #"$schema_base;f=admin/sql/CreateIndexes.sql;hb=master" => "replication/CreateIndexes.sql",
+        #"$schema_base;f=admin/sql/CreatePrimaryKeys.sql;hb=master" => "replication/CreatePrimaryKeys.sql",
+        #"$schema_base;f=admin/sql/CreateFunctions.sql;hb=master" => "replication/CreateFunctions.sql",
+        #"$schema_base;f=admin/sql/ReplicationSetup.sql;hb=master" => "replication/ReplicationSetup.sql",
+        #"$schema_base;f=admin/sql/statistics/CreateTables.sql;hb=master" => "replication/StatisticsSetup.sql",
+        #"$schema_base;f=admin/sql/caa/CreateTables.sql;hb=master" => "replication/CoverArtSetup.sql"
     );
     
     return %files;

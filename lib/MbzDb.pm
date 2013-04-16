@@ -18,6 +18,10 @@ sub LoadModule {
     }
 }
 
+# Trim($string)
+# Based on the PHP function trim() to chop whitespace off the left and right.
+# @param $string The string to trim.
+# @return A new copy of the trimmed string.
 sub Trim {
     my @r;
     foreach my $string (@_) {
