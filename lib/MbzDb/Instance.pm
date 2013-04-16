@@ -94,6 +94,8 @@ sub init {
     MbzDb::LoadModule($class);
     my $obj = $class->new($self);
     $obj->init();
+    $obj->rawDownload();
+    $obj->updateSchema();
     
     print "Done.\n";
 }
@@ -108,6 +110,12 @@ sub help {
     print "    --init   Create a new instance.\n";
     print "      --db       The database (mysql, postgresql, etc).\n";
     print "      --options  Database options, like 'user=bob'.\n";
+    print "        db         Database name (it will be created if it does not already exist).\n";
+    print "        driver     DBI driver (default 'mysql').\n";
+    print "        engine     Database engine (MySQL only).\n";
+    print "        pass       Password.\n";
+    print "        tablespace Tablespace (MySQL only).\n";
+    print "        user       User name.\n";
     print "\n";
     exit(1);
 }

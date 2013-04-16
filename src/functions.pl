@@ -387,68 +387,6 @@ sub mbz_pad_right {
 }
 
 
-# mbz_raw_download()
-# Download all the mbdump files.
-# @return 1 on success. This subroutine has the potential to issue a die() if there as serious ftp
-#         problems.
-sub mbz_raw_download {
-	my $host = 'ftp.musicbrainz.org';
-	my @files;
-	
-	# find out the latest NGS
-	my $latest = "";
-	print "Logging into MusicBrainz FTP ($host)...\n";
-	my $ftp = Net::FTP->new($host, Timeout => 60)
-				or die "Cannot contact $host: $!";
-	$ftp->login('anonymous') or die "Can't login ($host): " . $ftp->message;
-	$ftp->cwd('/pub/musicbrainz/data/fullexport/')
-		or die "Can't change directory ($host): " . $ftp->message;
-	my @ls = $ftp->ls('-l latest*');
-	$latest = substr($ls[0], length($ls[0]) - 15, 15);
-	print "The latest is mbdump is '$latest'\n";
-	$ftp->cwd("/pub/musicbrainz/data/fullexport/$latest")
-			or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
-			
-	@files = (
-		'mbdump-stats.tar.bz2',
-		'mbdump-derived.tar.bz2',
-		'mbdump.tar.bz2'
-	);
-	
-	# probably need this
-	$ftp->binary();
-	
-	foreach my $file (@files) {
-		print localtime() . ": Downloading $file... ";
-		
-		# if the file exists, don't download it again
-		if(-e "replication/$file") {
-			print "File already downloaded\n";
-		} else {
-			$ftp->get($file, "replication/$file")
-				or die("Unable to download file $file: " . $ftp->message);
-			print "Done\n";
-		}
-	}
-	
-	return 1;
-}
-
-
-# mbz_remove_quotes($str)
-# Take the double-quotes out of a string. This is used by mbz_update_schema because PostgreSQL
-# wraps entity names in double quotes which does not work in most other RDBMSs.
-# @return A new string that does not include double-quotes.
-sub mbz_remove_quotes {
-	my $str = $_[0];
-	my $r = "";
-	for(my $i = 0; $i < length($str); ++$i) {
-		$r .= substr($str, $i, 1) if(substr($str, $i, 1) ne '"');
-	}
-	return $r;
-}
-
-
 # mbz_rewrite_settings()
 # After choosing the language rewrite the firstboot.pl file.
 # @return 1 on success, otherwise 0.
@@ -836,20 +774,6 @@ sub mbz_update_index {
 sub mbz_update_foreignkey {
 	# use the subroutine appropriate for the RDBMS
 	my $function_name = "backend_${g_db_rdbms}_update_foreignkey";
-	return (\&$function_name)->();
-}
-
-# mbz_update_schema()
-# This subroutine is just a controller that redirects to the update schema for the RDBMS we are
-# using.
-# @return Passthru from backend_DB_update_schema().
-sub mbz_update_schema {
-	print $L{'downloadschema'};
-	mbz_download_schema();
-	print $L{'done'} . "\n";
-	
-	# use the subroutine appropriate for the RDBMS
-	my $function_name = "backend_${g_db_rdbms}_update_schema";
 	return (\&$function_name)->();
 }
 

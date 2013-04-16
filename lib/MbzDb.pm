@@ -25,6 +25,8 @@ sub Trim {
         $string =~ s/\s+$//;
         push(@r, $string);
     }
+    
+    return $r[0] if(@r == 1);
 	return @r;
 }
 
