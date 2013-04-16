@@ -642,45 +642,6 @@ sub mbz_unpack_data {
 }
 
 
-# mbz_unzip_mbdump($file)
-# Unzip downloaded mbdump file and move the raw tables to mbdump/.
-# @param $file The file name to uncompress.
-# @return Always 1.
-sub mbz_unzip_mbdump {
-	my $file = $_[0];
-	print localtime() . ": Uncompressing $file... ";
-	mkdir("mbdump");
-	if($^O eq "MSWin32") {
-		system("$g_mv replication\\mbdump\\* mbdump >nul");
-		system("bin\\bunzip2 -f replication/$file");
-		system("bin\\tar -xf replication/" . substr($file, 0, length($file) - 4) . " -C replication");
-	} else {
-		system("tar -xjf replication/$file -C replication");
-		system("$g_mv replication/mbdump/* mbdump");
-	}
-	print "Done\n";
-	return 1;
-}
-
-# mbz_unzip_mbdumps()
-# Unzip all downloaded mbdumps.
-# @return Always 1.
-sub mbz_unzip_mbdumps {
-	opendir(MBDUMP, "replication");
-	my @files = sort(readdir(MBDUMP));
-	
-	foreach my $file (@files) {
-		if(substr($file, 0, 6) eq 'mbdump' && substr($file, length($file) - 8, 8) eq '.tar.bz2' &&
-		   substr($file, 0, 1) ne '.') {
-			mbz_unzip_mbdump($file);
-		}
-	}
-	
-	closedir(MBDUMP);
-	return 1;
-}
-
-
 # mbz_unzip_replication($id)
 # Unzip downloaded replication.
 # @param $id The current replication number. See mbz_get_current_replication().

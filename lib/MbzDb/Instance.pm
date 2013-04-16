@@ -90,14 +90,20 @@ sub init {
         $self->{'ini'}->set("$name.$key", $value);
     }
     
-    # launch the init
+    # load backend
     MbzDb::LoadModule($class);
     my $obj = $class->new($self);
-    $obj->init();
-    #$obj->rawDownload();
     
+    # initialise
+    $obj->init();
+    
+    # download and install schema
     $obj->downloadSchema();
     $obj->updateSchema();
+    
+    # download and load data
+    $obj->downloadData();
+    $obj->unzipData();
     
     print "Done.\n";
 }

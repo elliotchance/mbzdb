@@ -40,7 +40,7 @@ exit(0) if($input ne "y" and $input ne "yes");
 if($action == 1) {
 	#mbz_create_extra_tables();
 	#mbz_raw_download();
-	mbz_update_schema();
+	#mbz_update_schema();
 	mbz_unzip_mbdumps();
 	mbz_load_data();
 	mbz_update_index();

@@ -70,11 +70,11 @@ sub removeQuotes {
 	return $r;
 }
 
-# rawDownload()
+# downloadData()
 # Download all the mbdump files.
 # @return 1 on success. This subroutine has the potential to issue a die() if there as serious ftp
 #         problems.
-sub rawDownload {
+sub downloadData {
     my $self = shift;
 	my $host = 'ftp.musicbrainz.org';
     my $logger = MbzDb::Logger::Get();
@@ -120,6 +120,51 @@ sub rawDownload {
 		}
 	}
 	
+	return 1;
+}
+
+# unzipData()
+# Unzip all downloaded mbdumps.
+# @return Always 1.
+sub unzipData {
+    my $self = shift;
+
+	opendir(MBDUMP, "replication");
+	my @files = sort(readdir(MBDUMP));
+	
+	foreach my $file (@files) {
+		if(substr($file, 0, 6) eq 'mbdump' && substr($file, length($file) - 8, 8) eq '.tar.bz2' &&
+		   substr($file, 0, 1) ne '.') {
+			$self->unzipDataFile($file);
+		}
+	}
+	
+	closedir(MBDUMP);
+	return 1;
+}
+
+# unzipDataFile($file)
+# Unzip downloaded mbdump file and move the raw tables to mbdump/.
+# @param $file The file name to uncompress.
+# @return Always 1.
+sub unzipDataFile {
+    my ($self, $file) = @_;
+    my $logger = MbzDb::Logger::Get();
+    
+	$logger->logInfo("Uncompressing $file... ");
+	mkdir("mbdump");
+	
+	my $mv = MbzDb::GetSystemMoveCommand();
+	if($^O eq "MSWin32") {
+		system("$mv replication\\mbdump\\* mbdump >nul");
+		system("bin\\bunzip2 -f replication/$file");
+		system("bin\\tar -xf replication/" . substr($file, 0, length($file) - 4) . " -C replication");
+	} else {
+		system("tar -xjf replication/$file -C replication");
+		system("$mv replication/mbdump/* mbdump");
+	}
+	
+	$logger->logInfo("Done");
 	return 1;
 }
 
