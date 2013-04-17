@@ -87,17 +87,6 @@ sub mbz_get_count {
 }
 
 
-# mbz_get_current_replication()
-# Get the current replication number.
-# @return The current replication number or undef if there was a problem.
-sub mbz_get_current_replication {
-	my $sth = $dbh->prepare("select * from replication_control");
-	$sth->execute();
-	my $result = $sth->fetchrow_hashref();
-	return $result->{'current_replication_sequence'};
-}
-
-
 # mbz_get_key($name)
 # Some plugins may require settings to be saved for next execution. You may use mbz_set_key() and
 # mbz_get_key() for this. There is an example in plugins/example.pl.
@@ -151,28 +140,6 @@ sub mbz_init_plugins {
 	}
 	
 	return 1;
-}
-
-
-# mbz_load_data()
-# This subroutine is just a controller that redirects to the loda data for the RDBMS we are using.
-# @return Passthru from backend_DB_load_data().
-sub mbz_load_data {
-	# use the subroutine appropriate for the RDBMS
-	my $function_name = "backend_${g_db_rdbms}_load_data";
-	return (\&$function_name)->();
-}
-
-
-# mbz_load_pending()
-# This subroutine is just a controller that redirects to the load pending for the RDBMS we are
-# using.
-# @return Passthru from backend_DB_load_pending().
-sub mbz_load_pending {
-	# use the subroutine appropriate for the RDBMS
-	my $id = $_[0];
-	my $function_name = "backend_${g_db_rdbms}_load_pending";
-	return (\&$function_name)->($id);
 }
 
 
@@ -245,26 +212,6 @@ sub mbz_pad_right {
 		$r .= $ch;
 	}
 	return "$r$str";
-}
-
-
-# mbz_rewrite_settings()
-# After choosing the language rewrite the firstboot.pl file.
-# @return 1 on success, otherwise 0.
-sub mbz_rewrite_settings {
-	open(SETTINGS, "> src/firstboot.pl") or return 0;
-	
-	print SETTINGS "# First boot\n";
-	print SETTINGS "\$g_chosenlanguage = $g_chosenlanguage;\n";
-	print SETTINGS "\$g_firstboot      = $g_firstboot;\n\n";
-
-	print SETTINGS "# Language\n";
-	print SETTINGS "\$g_language = '$g_language';\n\n";
-
-	print SETTINGS "return 1;\n";
-	
-	close(SETTINGS);
-	return 1;
 }
 
 
@@ -445,57 +392,6 @@ sub mbz_show_update_help {
 }
 
 
-# mbz_sql_error($err, $stmt)
-# Almost all SQL statements should be executed through mbz_do_sql(), this is because if the SQL
-# fails this function is called. The action this function takes is dictated by what the user has
-# specified in settings.pl.
-# @param $err The error message directly from the RDBMS.
-# @param $stmt The SQL statement that caused the problem.
-# @return Always 0. However this subroutine has the potential to issue a die() if that is set as the
-#         action in settings.pl.
-sub mbz_sql_error {
-	($err, $stmt) = @_;
-
-	# is it a duplicate ID?
-	# TODO: "Duplicate entry" is only suited to MySQL error messages.
-	return 0 if((substr($err, 0, 15) eq "Duplicate entry") && ($g_die_on_dupid == 0));
-
-	if($g_die_on_error == 1) {
-		die("[ERROR] SQL: '$stmt'\n\n");
-	} else {
-		warn("SQL: '$stmt'\n\n");
-	}
-	
-	return 0;
-}
-
-
-# mbz_table_column_exists($table_name, $col_name)
-# This subroutine is just a controller that redirects to the table column exists for the RDBMS we
-# are using.
-# @param $table_name The name of the table to look for.
-# @param $col_name The column name in the table.
-# @return 1 if the table column exists, otherwise 0.
-sub mbz_table_column_exists {
-	# use the subroutine appropriate for the RDBMS
-	my ($table_name, $col_name) = @_;
-	my $function_name = "backend_${g_db_rdbms}_table_column_exists";
-	return (\&$function_name)->($table_name, $col_name);
-}
-
-
-# mbz_table_exists($tablename)
-# This subroutine is just a controller that redirects to the table exists for the RDBMS we are
-# using.
-# @return Passthru from backend_DB_table_exists().
-sub mbz_table_exists {
-	# use the subroutine appropriate for the RDBMS
-	my $table_name = $_[0];
-	my $function_name = "backend_${g_db_rdbms}_table_exists";
-	return (\&$function_name)->($table_name);
-}
-
-
 # mbz_unpack_data($packed)
 # Given a packed string from pending data this subroutine unpacks it into a hash of
 # columnname => value.
@@ -564,27 +460,6 @@ sub mbz_unzip_replication {
 	}
 	print "Done\n";
 	return 1;
-}
-
-
-# mbz_update_index()
-# This subroutine is just a controller that redirects to the update index for the RDBMS we are
-# using.
-# @return Passthru from backend_DB_update_index().
-sub mbz_update_index {
-	# use the subroutine appropriate for the RDBMS
-	my $function_name = "backend_${g_db_rdbms}_update_index";
-	return (\&$function_name)->();
-}
-
-# mbz_update_foreignkey()
-# This subroutine is just a controller that redirects to the update index for the RDBMS we are
-# using.
-# @return Passthru from backend_DB_update_index().
-sub mbz_update_foreignkey {
-	# use the subroutine appropriate for the RDBMS
-	my $function_name = "backend_${g_db_rdbms}_update_foreignkey";
-	return (\&$function_name)->();
 }
 
 

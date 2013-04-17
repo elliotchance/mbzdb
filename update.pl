@@ -10,19 +10,6 @@ $f_onlypending = 0;
 $f_skiptorep = 0;
 $f_truncatetables = 0;
 
-require "settings.pl";
-require "settings_$g_db_rdbms.pl";
-require "languages/$g_language.pl";
-require "backend/$g_db_rdbms.pl";
-require "src/functions.pl";
-
-mbz_create_folders();
-
-# require plugin files
-foreach my $plugin (@g_active_plugins) {
-	require "plugins/$plugin.pl";
-}
-
 # PROCESS FLAGS
 foreach $ARG (@ARGV) {
 	@parts = split("=", $ARG);
@@ -53,26 +40,6 @@ if($f_truncatetables == 1) {
 }
 
 BEGIN:
-
-# GET CURRENT REPLICATION AND SCHEMA
-my $rep = mbz_get_current_replication();
-#my $schema = $row[1];
-
-# CHANGE REPLICATION NUMBER
-if($f_skiptorep > 0) {
-  print "CHANGING REPLICATION NUMBER: $f_skiptorep\n";
-  print "Moving ";
-  if($rep > $f_skiptorep) {
-    print "BACKWARD ";
-  } else {
-    print "FORWARD ";
-  }
-  print abs($f_skiptorep - $rep) . " replications.\n";
-  
-  mbz_do_sql("UPDATE replication_control SET current_replication_sequence=$f_skiptorep");
-  print "Done\n";
-  exit(0);
-}
 
 # FIND IF THERE ARE PENDING TRANSACTIONS
 $sth = $dbh->prepare("SELECT count(1) from " . mbz_escape_entity($g_pending));

@@ -18,7 +18,12 @@ sub new {
         'dbh' => undef,
         'instance' => $instance
     };
-    return bless $self, $class;
+    bless $self, $class;
+    
+    # connect
+    $self->connect();
+    
+    return $self;
 }
 
 sub connect {
@@ -62,9 +67,6 @@ sub do {
 # is required to setup the environment before the schema is allied and data is loaded in.
 sub install {
     my $self = shift;
-    
-    # connect
-    $self->connect();
 }
 
 sub updateSchemaFromFile {
@@ -312,9 +314,6 @@ sub uninstall {
     my $logger = MbzDb::Logger::Get();
     my ($db) = $self->{'instance'}->getInstanceOption('db');
     
-    # connect
-    $self->connect();
-    
     # drop tables
     while($self->_dropTables() > 0) {}
 }
@@ -343,6 +342,22 @@ sub _dropTables {
 	$sth->finish();
 	
 	return $tablesDropped;
+}
+
+# getCurrentReplicationNumber()
+# Get the current replication number.
+# @return The current replication number or undef if there was a problem.
+sub getCurrentReplicationNumber {
+    my $self = shift;
+	my $sth = $self->{'dbh'}->prepare("select * from replication_control");
+	$sth->execute();
+	my $result = $sth->fetchrow_hashref();
+	return $result->{'current_replication_sequence'};
+}
+
+sub setCurrentReplicationNumber {
+    my ($self, $rep) = @_;
+    $self->do("UPDATE replication_control SET current_replication_sequence=$rep");
 }
 
 1;

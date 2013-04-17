@@ -48,6 +48,7 @@ sub getInstanceOption {
 sub startFromCommandLine {
     my $self = shift;
     $self->{'commandLineOptions'} = $self->_getCommandLineOptions();
+    my $logger = MbzDb::Logger::Get();
     
     # choose action
     if($self->{'commandLineOptions'}{'action'} eq 'help') {
@@ -61,6 +62,59 @@ sub startFromCommandLine {
     }
     elsif($self->{'commandLineOptions'}{'action'} eq 'uninstall') {
         $self->uninstall();
+    }
+    elsif($self->{'commandLineOptions'}{'action'} eq 'update') {
+        $self->update();
+    }
+    else {
+        $logger->logFatal("Unknown action '" . $self->{'commandLineOptions'}{'action'} . "'");
+    }
+}
+
+# update()
+# Update (run replications) on an instance.
+sub update {
+    my $self = shift;
+    my $logger = MbzDb::Logger::Get();
+    
+    # create the empty folders needed
+    MbzDb::CreateFolders();
+    
+    # make sure the instance exists
+    my $name = $self->{'commandLineOptions'}{'instance'};
+    if(!$self->{'ini'}->instanceExists($name)) {
+        $logger->logUserError("No such instance '$name'.");
+        exit(1);
+    }
+    
+    # get the instance
+    my $class = MbzDb::Backend::GetClassByName($self->{'ini'}->get("$name._db"));
+    
+    # load backend
+    MbzDb::LoadModule($class);
+    my $obj = $class->new($self);
+    
+    # get the current replication number
+    my $rep = $obj->getCurrentReplicationNumber();
+    $rep = 0 if(!$rep);
+    
+    # skip to replication number
+    my $newrep = $self->{'commandLineOptions'}{'skiptorep'};
+    if($newrep) {
+        $logger->logInfo("Changing replication number to $newrep.");
+        
+        my $msg = "Moved ";
+        if($rep > $newrep) {
+            $msg .= "backward ";
+        }
+        else {
+            $msg .= "forward ";
+        }
+        $msg .= abs($newrep - $rep) . " replications.";
+
+        $obj->setCurrentReplicationNumber($newrep);
+        $logger->logInfo($msg);
+        exit(0);
     }
 }
 
@@ -142,20 +196,30 @@ sub install {
 sub help {
     my $self = shift;
     print "\n";
-    print "Usage: ./mbzdb [options]\n";
+    print "Usage: ./mbzdb action [options]\n";
     print "\n";
-    print "    --help       Show this help message.\n";
-    print "    --info       Show information about the instances.\n";
-    print "    --install    Create a new instance.\n";
+    print "    action:\n";
+    print "      help         Show this help message.\n";
+    print "      info         Show information about the instances.\n";
+    print "      install      Create a new instance.\n";
+    print "      uninstall    Remove an instance.\n";
+    print "      update       Update (run replications) on an instance.\n";
+    print "\n";
+    print "    global options\n";
+    print "      --instance   The instance name.\n";
+    print "\n";
+    print "    'install' options\n";
     print "      --db         The database (mysql, postgresql, etc).\n";
-    print "      --options    Database options, like 'user=bob'.\n";
+    print "      --options    Database options, like 'user=bob,pass=123'.\n";
     print "        db           Database name (it will be created if it does not already exist).\n";
     print "        driver       DBI driver (default 'mysql').\n";
     print "        engine       Database engine (MySQL only).\n";
     print "        pass         Password.\n";
     print "        tablespace   Tablespace (MySQL only).\n";
     print "        user         User name.\n";
-    print "    --uninstall  Remove an instance.\n";
+    print "\n";
+    print "    'update' options\n";
+    print "      --skiptorep  Skip to a specific replication number.\n";
     print "\n";
     exit(1);
 }
@@ -175,7 +239,8 @@ sub _getCommandLineOptions {
         'instance' => DEFAULT_INSTANCE,
         'language' => 'English',
         'db' => '',
-        'options' => ''
+        'options' => '',
+        'skiptorep' => undef
     );
 
     # read the command line options
@@ -184,6 +249,7 @@ sub _getCommandLineOptions {
         "language=s" => \$options{'language'},
         "db=s" => \$options{'db'},
         "options=s" => \$options{'options'},
+        "skiptorep=i" => \$options{'skiptorep'},
     );
     
     # post process
