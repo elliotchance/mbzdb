@@ -57,10 +57,10 @@ sub do {
     return $self->{'dbh'}->do($sql);
 }
 
-# init()
-# This is called when --init is used from the command line. It is responsible for anything that is
-# required to setup the environment before the schema is allied and data is loaded in.
-sub init {
+# install()
+# This is called when --install is used from the command line. It is responsible for anything that
+# is required to setup the environment before the schema is allied and data is loaded in.
+sub install {
     my $self = shift;
     
     # connect
@@ -108,11 +108,11 @@ sub updateSchemaFromFile {
         
             # do not create the table if it already exists
             if(!$self->tableExists($table)) {
-                $stmt = "CREATE TABLE `$table` (dummycolumn int)";
+                $stmt = "CREATE TABLE `$table` (dummycolumn int) COMMENT 'mbzdb'";
             
                 my ($engine, $tablespace) = $self->{'instance'}->getInstanceOption('engine', 'tablespace');
-                $stmt .= " engine=$engine" if($engine);
-                $stmt .= " tablespace $tablespace" if($tablespace);
+                $stmt .= " ENGINE=$engine" if($engine);
+                $stmt .= " TABLESPACE $tablespace" if($tablespace);
             }
 		}
 		elsif($tline =~ /^CREATE\s+TYPE/) {
@@ -302,6 +302,46 @@ sub loadData {
 	closedir(DIR);
 	my $t2 = time();
 	print "\nComplete (" . MbzDb::FormatTime($t2 - $temp_time) . ")\n";
+}
+
+# uninstall()
+# This is called when --uninstall is used from the command line. It is responsible remove everything
+# that was previously installed.
+sub uninstall {
+    my $self = shift;
+    my $logger = MbzDb::Logger::Get();
+    my ($db) = $self->{'instance'}->getInstanceOption('db');
+    
+    # connect
+    $self->connect();
+    
+    # drop tables
+    while($self->_dropTables() > 0) {}
+}
+
+# _dropTables()
+# Drop tables with 'mbzdb' in the comment. Keep calling this function until it returns 0.
+# @return The number of tables dropped in this iteration.
+sub _dropTables {
+    my $self = shift;
+    my $logger = MbzDb::Logger::Get();
+    my ($db) = $self->{'instance'}->getInstanceOption('db');
+    my $tablesDropped = 0;
+    
+    # we do not drop the database in case we are sharing the database with something else, instead
+    # we look for a COMMENT marker on the tables that we did install.
+	my $sth = $self->{'dbh'}->prepare("show table status where comment='mbzdb'");
+	$sth->execute();
+	while(my @result = $sth->fetchrow_array()) {
+	    # attempt to drop the tables, it is wrapped in an eval because it might fail with the
+	    # foreign keys, you keep calling this function until it returns 0
+	    eval {
+		    $self->do("DROP TABLE `$result[0]`");
+		    ++$tablesDropped;
+		};
+	}
+	
+	return $tablesDropped;
 }
 
 1;

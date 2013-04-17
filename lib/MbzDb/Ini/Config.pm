@@ -19,4 +19,14 @@ sub instanceExists {
     return 0;
 }
 
+sub removeInstance {
+    my ($self, $instanceName) = @_;
+    my %data = $self->getAll();
+    while(my ($key, $value) = each %data) {
+        if(substr($key, 0, length($instanceName) + 1) eq "$instanceName.") {
+            $self->remove($key);
+        }
+    }
+}
+
 1;
