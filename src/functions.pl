@@ -25,43 +25,6 @@ sub mbz_check_new_schema {
 }
 
 
-# mbz_choose_language()
-# Find out there language. This is for firstboot, once the language is set it can be changed
-# manually in src/firstboot.pl.
-# @return This function does not return. It will always issue a safe exit(0) so the script can be
-#         restarted with the the new language file.
-sub mbz_choose_language {
-	choose:
-	opendir(LANGDIR, "languages");
-	my @languages = readdir(LANGDIR);
-	closedir(LANGDIR);
-	my @langoptions = ();
-	foreach my $language (@languages) {
-		if(substr($language, 0, 1) ne ".") {
-			push(@langoptions, substr($language, 0, length($language) - 3));
-		}
-	}
-	@langoptions = sort(@langoptions);
-	for($i = 0; $i < @langoptions; ++$i) {
-		print "[$i] $langoptions[$i]\n";
-	}
-	print "> ";
-	chomp(my $input = <STDIN>);
-	if($input !~ /^-?\d/ or $input < 0 or $input > @langoptions - 1) {
-		print $L{'invalid'} . "\n\n";
-		goto choose;
-	}
-	
-	$g_chosenlanguage = 1;
-	$g_language = $langoptions[$input];
-	mbz_rewrite_settings();
-	require "languages/$g_language.pl";
-	print $L{'langchanged'};
-	print "\n";
-	exit(0);
-}
-
-
 # mbz_connect()
 # This subroutine is just a controller that redirects to the connect for the RDBMS we are using.
 # @return Passthru from backend_DB_connect().
@@ -80,21 +43,6 @@ sub mbz_create_extra_tables {
 	# use the subroutine appropriate for the RDBMS
 	my $function_name = "backend_${g_db_rdbms}_create_extra_tables";
 	return (\&$function_name)->();
-}
-
-
-# mbz_do_sql($sql)
-# Execute a SQL statement that does not require a statement handle result. This is a safer and
-# easier that using other methods because this subroutine will handles errors properly based on the
-# values in settings.pl. This function should also be used with plugins that need to interface the
-# MusicBrainz tables so that the plugin can follow the same rules as the replication itself.
-# @param $sql The SQL statement to be executed.
-# @return Passthru from $dbh::do().
-sub mbz_do_sql {
-	#print "[SQL] $_[0]\n";
-	my $result = $dbh->do($_[0]);
-	$result or mbz_sql_error($dbh->errstr, $_[0]) if($_[1] ne 'nodie');
-	return $result;
 }
 
 
@@ -123,27 +71,6 @@ sub mbz_download_replication {
 	
 	print "Done\n";
 	return $found;
-}
-
-
-# mbz_escape_entity()
-# This subroutine is just a controller that redirects to the escape entity for the RDBMS we are
-# using.
-# @return Passthru from backend_DB_escape_entity().
-sub mbz_escape_entity {
-	# use the subroutine appropriate for the RDBMS
-	my $entity = $_[0];
-	my $function_name = "backend_${g_db_rdbms}_escape_entity";
-	return (\&$function_name)->($entity);
-}
-
-
-# mbz_first_boot()
-# We currently don't need this but may in the future. It is called by init.pl the first time init.pl
-# is run.
-# @return Always 1.
-sub mbz_first_boot {
-	return 1;
 }
 
 

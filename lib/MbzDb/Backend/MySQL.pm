@@ -340,6 +340,7 @@ sub _dropTables {
 		    ++$tablesDropped;
 		};
 	}
+	$sth->finish();
 	
 	return $tablesDropped;
 }

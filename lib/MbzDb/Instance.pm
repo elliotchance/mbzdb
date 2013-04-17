@@ -177,32 +177,17 @@ sub _getCommandLineOptions {
         'db' => '',
         'options' => ''
     );
-    my %actions = (
-        'help' => '',
-        'info' => '',
-        'install' => '',
-        'uninstall' => ''
-    );
 
     # read the command line options
     GetOptions(
-        "help" => \$actions{'help'},
         "instance=s" => \$options{'instance'},
         "language=s" => \$options{'language'},
-        "info" => \$actions{'info'},
-        "install" => \$actions{'install'},
-        "uninstall" => \$actions{'uninstall'},
         "db=s" => \$options{'db'},
         "options=s" => \$options{'options'},
     );
     
     # post process
-    foreach my $action (keys %actions) {
-        if($actions{$action}) {
-            $options{'action'} = $action;
-        }
-    }
-    
+    $options{'action'} = $ARGV[0];
     $options{'options'} = MbzDb::MakeHashFromKeyValues($options{'options'});
     
     return (\%options);
