@@ -84,6 +84,20 @@ sub backend_mysql_index_exists {
 	return 0;
 }
 
+sub backend_mysql_primary_key_exists {
+        my $table_name = $_[0];
+
+        # yes I know this is a highly inefficent way to do it, but its simple and is only called on
+        # schema changes.
+        my $sth2 = $dbh->prepare("show indexes from `$table_name`");
+        $sth2->execute();
+        while(@result2 = $sth2->fetchrow_array()) {
+	        return 1 if($result2[2] eq 'PRIMARY');
+        }
+
+        # the index was not found
+        return 0;
+}
 
 # mbz_load_data()
 # Load the data from the mbdump files into the tables.
@@ -99,8 +113,19 @@ sub backend_mysql_load_data {
 		my $t1 = time();
 		$table = $file;
 		next if($table eq "blank.file" || substr($table, 0, 1) eq '.');
+		next if( -d "./mbdump/$table");
+		
+		if(substr($table, 0, 11) eq "statistics.")
+		{
+			$table = substr($table, 11, length($table) - 11);
+		}
 
-		print "\n" . localtime() . ": Loading data into '$file' ($i of $count)...\n";
+		if(backend_mysql_table_column_exists($table,"dummycolumn"))
+		{
+       			mbz_do_sql("ALTER TABLE `$table` DROP COLUMN dummycolumn");
+		}
+		
+		print "\n" . localtime() . ": Loading data into '$table' ($i of $count)...\n";
 		mbz_do_sql("LOAD DATA LOCAL INFILE 'mbdump/$file' INTO TABLE `$table` ".
 		           "FIELDS TERMINATED BY '\\t' ".
 		           "ENCLOSED BY '' ".
@@ -168,7 +193,11 @@ sub backend_mysql_table_column_exists {
 	my $sth = $dbh->prepare("describe `$table_name`");
 	$sth->execute();
 	while(@result = $sth->fetchrow_array()) {
-		return 1 if($result[0] eq $col_name);
+		if($col_name eq "PRIMARY") {
+			return 1 if($result[3] eq 'PRI');
+		} else {
+			return 1 if($result[0] eq $col_name);
+		}
 	}
 	
 	# table column was not found
@@ -205,7 +234,7 @@ sub backend_mysql_update_index {
 	open(SQL, "replication/CreateIndexes.sql");
 	chomp(my @lines = <SQL>);
 	
-	my $index_size = 256;
+	my $index_size = 200;
 	foreach my $line (@lines) {
 		$line = mbz_trim($line);
 		my $pos_index = index($line, 'INDEX ');
@@ -236,7 +265,7 @@ sub backend_mysql_update_index {
 		# TEXT then MySQL requires and index length.
 		my @columns = split(",", $cols);
 		for(my $i = 0; $i < @columns; ++$i) {
-			if(backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') {
+			if((backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') || (backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'varchar')  ) {
 				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)";
 			} else {
 				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
@@ -278,13 +307,13 @@ sub backend_mysql_update_index {
 		my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
 
 		# no need to create the index if it already exists
-		next if(backend_mysql_index_exists($index_name));
+		next if(backend_mysql_primary_key_exists($table_name));
 
 		# split and clean column names. this is also a good time to find out there type, if its
 		# TEXT then MySQL requires and index length.
 		my @columns = split(",", $cols);
 		for(my $i = 0; $i < @columns; ++$i) {
-			if(backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') {
+			if((backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text')  || (backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'varchar') ) {
 				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)";
 			} else {
 				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
@@ -364,17 +393,30 @@ sub backend_mysql_update_schema_from_file {
 	#       exists will be ignored. I'm not sure how important this is but its worth noting.
 	
 	# this is where it has to translate PostgreSQL to MySQL as well as making any modifications
-	# needed.
+	# needed
 	open(SQL, $_[0]);
 	chomp(my @lines = <SQL>);
 	my $table = "";
+	my $enums = ();
+	my $ignore = 0;
 	foreach my $line (@lines) {
+		#print "$line\n";
+
 		# skip blank lines and single bracket lines
-		next if($line eq "" || $line eq "(" || substr($line, 0, 1) eq "\\");
+		next if($line eq "" || $line eq "(" || substr($line, 0, 1) eq "\\" || substr(mbz_trim($line), 0, 2) eq '--');
 		
-		my $stmt = "";
+		#If in ignore mode
+		if($ignore eq 1) {
+			if ( (index($line,",") > 0) || (index($line,";") > 0) ) {
+				$ignore = 0;
+			}
+			next;
+		}
+
+		my $stmt = '';
+
 		if(substr($line, 0, 6) eq "CREATE" && index($line, "INDEX") < 0 &&
-			index($line, "AGGREGATE") < 0) {
+			index($line, "AGGREGATE") < 0 && index($line, "TYPE") < 0) {
 			$table = mbz_remove_quotes(substr($line, 13, length($line)));
 			if(substr($table, length($table) - 1, 1) eq '(') {
 				$table = substr($table, 0, length($table) - 1);
@@ -388,9 +430,22 @@ sub backend_mysql_update_schema_from_file {
 				$stmt .= " engine=$g_mysql_engine" if($g_mysql_engine ne '');
 				$stmt .= " tablespace $g_tablespace" if($g_tablespace ne '');
 			}
+		} elsif(substr($line, 0, 6) eq "CREATE" && index($line, "TYPE") > 0) {
+			my @p = split(" ", $line);
+                        $table = mbz_trim(@p[2]);
+			$content = substr($line, index($line, "AS") + 2, length($line));
+			$content = substr($content, 0, index($content,";"));
+                        print "Type $table -> $content\n";
+
+			$enums{$table} = $content;
+		} elsif(substr(mbz_trim($line),0,5) eq "CHECK" || substr(mbz_trim($line),0,5) eq 'ALTER') {
+			#Ignore the line rest of lines
+			$ignore = 1;
 		} elsif(substr($line, 0, 1) eq " " || substr($line, 0, 1) eq "\t") {
+			
 			my @parts = split(" ", $line);
 			for($i = 0; $i < @parts; ++$i) {
+				
 				if(substr($parts[$i], 0, 2) eq "--") {
 					@parts = @parts[0 .. ($i - 1)];
 					last;
@@ -406,6 +461,8 @@ sub backend_mysql_update_schema_from_file {
 				if(uc(substr($parts[$i], 0, 7)) eq "VARCHAR" && index($line, '(') < 0) {
 					$parts[$i] = "TEXT";
 				}
+				$parts[$i] = $enums{$parts[$i]} if($i != 0 && exists($enums{$parts[$i]}));
+				$parts[$i] = "VARCHAR(15)" if(uc(substr($parts[$i], 0, 13)) eq "CHARACTER(15)");
 				$parts[$i] = "INT NOT NULL" if(uc(substr($parts[$i], 0, 6)) eq "SERIAL");
 				$parts[$i] = "CHAR(36)" if(uc(substr($parts[$i], 0, 4)) eq "UUID");
 				$parts[$i] = "TEXT" if(uc(substr($parts[$i], 0, 4)) eq "CUBE");
@@ -432,7 +489,7 @@ sub backend_mysql_update_schema_from_file {
 			}
 			$stmt = "ALTER TABLE `$table` ADD $new_col " .
 				join(" ", @parts[1 .. @parts - 1]);
-				
+			
 			# no need to create the column if it already exists in the table
 			$stmt = "" if($table eq "" || mbz_table_column_exists($table, $parts[0]));
 		} elsif(substr($line, 0, 2) eq ");") {
@@ -442,7 +499,8 @@ sub backend_mysql_update_schema_from_file {
 		}
 		
 		if(mbz_trim($stmt) ne "") {
-			$dbh->do($stmt) or print "";
+			mbz_do_sql($stmt);
+			#$dbh->do($stmt) or print "";
 		}
 	}
 	
@@ -467,6 +525,8 @@ sub backend_mysql_update_schema_from_file {
 sub backend_mysql_update_schema {
 	backend_mysql_update_schema_from_file("replication/CreateTables.sql");
 	backend_mysql_update_schema_from_file("replication/ReplicationSetup.sql");
+	backend_mysql_update_schema_from_file("replication/StatisticsSetup.sql");
+	backend_mysql_update_schema_from_file("replication/CoverArtSetup.sql");
 }
 
 

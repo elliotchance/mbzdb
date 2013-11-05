@@ -31,6 +31,8 @@ $g_index_url = "$schema_base;f=admin/sql/CreateIndexes.sql;hb=master";
 $g_pk_url = "$schema_base;f=admin/sql/CreatePrimaryKeys.sql;hb=master";
 $g_func_url = "$schema_base;f=admin/sql/CreateFunctions.sql;hb=master";
 $g_pending_url = "$schema_base;f=admin/sql/ReplicationSetup.sql;hb=master";
+$g_stats_url = "$schema_base;f=admin/sql/statistics/CreateTables.sql;hb=master";
+$g_coverart_url = "$schema_base;f=admin/sql/caa/CreateTables.sql;hb=master";
 
 # Replications URL
 $g_rep_host = "ftp.musicbrainz.org";

@@ -3,6 +3,8 @@
 use LWP::UserAgent;
 use Net::FTP;
 
+# turn on Perl autoflush
+$| = 1;
 
 # connect to the specific RDBMS.
 mbz_connect();
@@ -89,6 +91,7 @@ sub mbz_create_extra_tables {
 # @param $sql The SQL statement to be executed.
 # @return Passthru from $dbh::do().
 sub mbz_do_sql {
+	#print "[SQL] $_[0]\n";
 	my $result = $dbh->do($_[0]);
 	$result or mbz_sql_error($dbh->errstr, $_[0]) if($_[1] ne 'nodie');
 	return $result;
@@ -128,7 +131,7 @@ sub mbz_download_replication {
 	$localfile = "replication/replication-$id.tar.bz2";
 	$file = "replication-$id.tar.bz2";
 	
-	my $ftp = Net::FTP->new($g_rep_host, Timeout => 60)
+	my $ftp = Net::FTP->new($g_rep_host, Timeout => 60, Passive => 1)
 				or die "Cannot contact $host: $!";
 	$ftp->login('anonymous') or die "Can't login ($host): " . $ftp->message;
 	$ftp->cwd($g_rep_url)
@@ -146,6 +149,8 @@ sub mbz_download_replication {
 # indexes and PL/pgSQL. It will later be converted for the RDBMS we are using.
 # @return Always 1.
 sub mbz_download_schema {
+	# TODO: We must download other SQL files (e.g. Functions and Indexes) for CoverArt and Statistics
+	# This variable organization $g_xxx_url might not work anymore. It should be best to split this into a subfunction.
 	unlink("replication/CreateTables.sql");
 	mbz_download_file($g_schema_url, "replication/CreateTables.sql");
 	unlink("replication/CreateIndexes.sql");
@@ -158,6 +163,10 @@ sub mbz_download_schema {
 	mbz_download_file($g_func_url, "replication/CreateFunctions.sql");
 	unlink("replication/ReplicationSetup.sql");
 	mbz_download_file($g_pending_url, "replication/ReplicationSetup.sql");
+	unlink("replication/StatisticsSetup.sql");
+	mbz_download_file($g_stats_url, "replication/StatisticsSetup.sql");
+	unlink("replication/CoverArtSetup.sql");
+	mbz_download_file($g_coverart_url, "replication/CoverArtSetup.sql");
 	return 1;
 }
 
@@ -653,7 +662,7 @@ sub mbz_sql_error {
 	return 0 if((substr($err, 0, 15) eq "Duplicate entry") && ($g_die_on_dupid == 0));
 
 	if($g_die_on_error == 1) {
-		die("SQL: '$stmt'\n\n");
+		die("[ERROR] SQL: '$stmt'\n\n");
 	} else {
 		warn("SQL: '$stmt'\n\n");
 	}
