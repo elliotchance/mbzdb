@@ -410,6 +410,7 @@ sub mbz_raw_download {
 			or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
 			
 	@files = (
+                'mbdump-cover-art-archive.tar.bz2',
 		'mbdump-stats.tar.bz2',
 		'mbdump-derived.tar.bz2',
 		'mbdump.tar.bz2'
