@@ -446,12 +446,12 @@ resume_stmt_end_on_check:
 		} elsif(substr(mbz_trim($line),0,5) eq "CHECK" || substr(mbz_trim($line),0,5) eq 'ALTER') {
 			#Ignore the line rest of lines
 			$ignore = 1;
-                        if( index($line,");") > 0 )
-                        {
-                            # end of CREATE TABLE 
-                            $line =");";
-                            goto resume_stmt_end_on_check;
-                        }
+			if( index($line,");") > 0 )
+			{
+				# end of CREATE TABLE 
+				$line =");";
+				goto resume_stmt_end_on_check;
+			}
 		} elsif(substr($line, 0, 1) eq " " || substr($line, 0, 1) eq "\t") {
 			
 			my @parts = split(" ", $line);
@@ -474,13 +474,13 @@ resume_stmt_end_on_check:
 				}
 				$parts[$i] = $enums{$parts[$i]} if($i != 0 && exists($enums{$parts[$i]}));
 				$parts[$i] = "VARCHAR(15)" if(uc(substr($parts[$i], 0, 13)) eq "CHARACTER(15)");
-                                $parts[$i] = "VARCHAR(100)" if(uc(substr($parts[$i], 0, 5)) eq "POINT");
+				$parts[$i] = "VARCHAR(100)" if(uc(substr($parts[$i], 0, 5)) eq "POINT");
 				$parts[$i] = "INT NOT NULL" if(uc(substr($parts[$i], 0, 6)) eq "SERIAL");
 				$parts[$i] = "CHAR(36)" if(uc(substr($parts[$i], 0, 4)) eq "UUID");
 				$parts[$i] = "TEXT" if(uc(substr($parts[$i], 0, 4)) eq "CUBE");
 				$parts[$i] = "CHAR(1)" if(uc(substr($parts[$i], 0, 4)) eq "BOOL");
 				$parts[$i] = "VARCHAR(256)" if(uc($parts[$i]) eq "INTERVAL");
-                                $parts[$i] = "TIMESTAMP" if(uc($parts[$i]) eq "TIMESTAMPTZ");
+				$parts[$i] = "TIMESTAMP" if(uc($parts[$i]) eq "TIMESTAMPTZ");
 				$parts[$i] = "0" if(uc(substr($parts[$i], 0, 3)) eq "NOW");
 				$parts[$i] = "0" if(uc(substr($parts[$i], 1, 1)) eq "{");
 				$parts[$i] = $parts[$i + 1] = $parts[$i + 2] = "" if(uc($parts[$i]) eq "WITH");
@@ -501,23 +501,22 @@ resume_stmt_end_on_check:
 				$new_col = $parts[0];
 			}
 
-                        if( $parts[1] eq "IS" || $parts[1] eq "=" ||
-                            $parts[1] eq "OR"  )  {
-                                $stmt = "";
-                                next;
-                        }
-                        
-
-                        $tmp = $new_col;
-                        $tmp =~ s/^\s+|\s+$//g;
-
-                        if( $tmp eq "`(`" || $tmp eq "`)`" ) {
-                                $stmt = "";
-                                next;
-                        }
-                        
-                        print "\tADD COLUMN $new_col\n";
-                        
+			if( $parts[1] eq "IS" || $parts[1] eq "=" ||
+				$parts[1] eq "OR"  )  {
+				$stmt = "";
+				next;
+			}
+			
+			$tmp = $new_col;
+			$tmp =~ s/^\s+|\s+$//g;
+			
+			if( $tmp eq "`(`" || $tmp eq "`)`" ) {
+				$stmt = "";
+				next;
+			}
+			
+			print "\tADD COLUMN $new_col\n";
+			
 			$stmt = "ALTER TABLE `$table` ADD $new_col " .
 				join(" ", @parts[1 .. @parts - 1]);
 			
