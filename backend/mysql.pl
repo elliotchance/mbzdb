@@ -422,6 +422,16 @@ resume_stmt_end_on_check:
 
 		if(substr($line, 0, 6) eq "CREATE" && index($line, "INDEX") < 0 &&
 			index($line, "AGGREGATE") < 0 && index($line, "TYPE") < 0) {
+				
+                        if( index($line,"--") > 0 ) {
+                               $line = substr($line, 0, index($line, "--"));
+                               # remove whitespaces
+                               $line =~ s/^\s+//;
+                               $line =~ s/\s+$//;
+
+                        }
+
+				
 			$table = mbz_remove_quotes(substr($line, 13, length($line)));
 			if(substr($table, length($table) - 1, 1) eq '(') {
 				$table = substr($table, 0, length($table) - 1);
