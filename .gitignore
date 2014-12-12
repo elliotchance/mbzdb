@@ -5,3 +5,4 @@ sloc.sh
 mbdump*
 replication/*
 ._*
+.DS_Store

@@ -494,6 +494,7 @@ resume_stmt_end_on_check:
 				$parts[$i] = "0" if(uc(substr($parts[$i], 0, 3)) eq "NOW");
 				$parts[$i] = "0" if(uc(substr($parts[$i], 1, 1)) eq "{");
 				$parts[$i] = $parts[$i + 1] = $parts[$i + 2] = "" if(uc($parts[$i]) eq "WITH");
+				$parts[$i] = $parts[$i + 1] = $parts[$i + 2] = "" if(uc($parts[$i]) eq "WITHOUT");
 				if(uc($parts[$i]) eq "VARCHAR" && substr($parts[$i + 1], 0, 1) ne "(") {
 					$parts[$i] = "TEXT";
 				}
