@@ -18,6 +18,7 @@ $g_db_name = 'ngsdb';
 
 # The engine to use when creating tables with MySQL. Set this to "" if you want to use the MySQL
 # default storage engine.
+# $g_mysql_engine = 'InnoDB ROW_FORMAT=COMPRESSED'; # for compressing table and index data
 $g_mysql_engine = 'InnoDB';
 
 # Server host, use 'localhost' if the database is on the same server as this script.
