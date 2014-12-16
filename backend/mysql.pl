@@ -475,6 +475,13 @@ resume_stmt_end_on_check:
 					@parts = @parts[0 .. ($i - 1)];
 					last;
 				}
+				if((substr($parts[$i], 0, 4) eq "WITH") || (substr($parts[$i], 0, 7) eq "WITHOUT")) {
+                                        if(substr($parts[$i+1], 0, 4) eq "TIME") {
+                                                if(substr($parts[$i+2], 0, 4) eq "ZONE") {
+                                                        $parts[$i] = $parts[$i+1] = $parts[$i+2] = "";
+                                                }
+                                        }
+                                }
 				
 				if(substr($parts[$i], length($parts[$i]) - 2, 2) eq "[]") {
 					$parts[$i] = "VARCHAR(255)";
