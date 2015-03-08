@@ -270,10 +270,15 @@ sub backend_mysql_update_index {
 		# TEXT then MySQL requires and index length.
 		my @columns = split(",", $cols);
 		for(my $i = 0; $i < @columns; ++$i) {
+			$sorting = '';
+			if(substr($columns[$i], -4) eq 'DESC') {
+				$sorting = ' DESC';
+				$columns[$i] = substr($columns[$i], 0, -5);
+			}
 			if((backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') || (backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'varchar')  ) {
-				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)";
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)" . $sorting;
 			} else {
-				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`" . $sorting;
 			}
 		}
 		
@@ -501,6 +506,7 @@ resume_stmt_end_on_check:
 				$parts[$i] = "0" if(uc(substr($parts[$i], 0, 3)) eq "NOW");
 				$parts[$i] = "0" if(uc(substr($parts[$i], 1, 1)) eq "{");
 				$parts[$i] = $parts[$i + 1] = $parts[$i + 2] = "" if(uc($parts[$i]) eq "WITH");
+				$parts[$i] = $parts[$i + 1] = $parts[$i + 2] = "" if(uc($parts[$i]) eq "WITHOUT");
 				if(uc($parts[$i]) eq "VARCHAR" && substr($parts[$i + 1], 0, 1) ne "(") {
 					$parts[$i] = "TEXT";
 				}
