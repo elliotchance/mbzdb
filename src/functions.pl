@@ -149,7 +149,6 @@ sub mbz_download_replication {
 # indexes and PL/pgSQL. It will later be converted for the RDBMS we are using.
 # @return Always 1.
 sub mbz_download_schema {
-	# TODO: We must download other SQL files (e.g. Functions and Indexes) for CoverArt and Statistics
 	# This variable organization $g_xxx_url might not work anymore. It should be best to split this into a subfunction.
 	unlink("replication/CreateTables.sql");
 	mbz_download_file($g_schema_url, "replication/CreateTables.sql");
@@ -167,6 +166,9 @@ sub mbz_download_schema {
 	mbz_download_file($g_stats_url, "replication/StatisticsSetup.sql");
 	unlink("replication/CoverArtSetup.sql");
 	mbz_download_file($g_coverart_url, "replication/CoverArtSetup.sql");
+        unlink("replication/CreateSlaveIndexes.sql");
+        mbz_download_file($g_slaveidx_url, "replication/CreateSlaveIndexes.sql");
+
 	return 1;
 }
 

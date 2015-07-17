@@ -297,6 +297,69 @@ sub backend_mysql_update_index {
 		}
 	}
 	close(SQL);
+
+        # this is a copypaste of the above code changing the .sql file
+        open(SQL, "replication/CreateSlaveIndexes.sql");
+        chomp(my @lines = <SQL>);
+	
+	my $index_size = 200;
+	foreach my $line (@lines) {
+		$line = mbz_trim($line);
+		my $pos_index = index($line, 'INDEX ');
+		my $pos_on = index($line, 'ON ');
+		
+		# skip blank lines, comments, psql settings and lines that arn't any use to us.
+		next if($line eq '' || substr($line, 0, 2) eq '--' || substr($line, 0, 1) eq "\\" ||
+		        $pos_index < 0);
+		        
+		# skip function-based indexes.
+		next if($line =~ /.*\(.*\(.*\)\)/);
+		
+		# get the names
+		my $index_name = mbz_trim(substr($line, $pos_index + 6, index($line, ' ', $pos_index + 7) -
+		                       $pos_index - 6));
+		my $table_name = mbz_trim(substr($line, $pos_on + 3, index($line, ' ', $pos_on + 4) -
+		                       $pos_on - 3));
+		my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
+		
+		# PostgreSQL will put double-quotes around some entity names, we have to remove these
+		$index_name = mbz_remove_quotes($index_name);
+		$table_name = mbz_remove_quotes($table_name);
+		
+		# see if the index aleady exists, if so skip
+		next if(mbz_index_exists($index_name));
+		
+		# split and clean column names. this is also a good time to find out there type, if its
+		# TEXT then MySQL requires and index length.
+		my @columns = split(",", $cols);
+		for(my $i = 0; $i < @columns; ++$i) {
+			$sorting = '';
+			if(substr($columns[$i], -4) eq 'DESC') {
+				$sorting = ' DESC';
+				$columns[$i] = substr($columns[$i], 0, -5);
+			}
+			if((backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') || (backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'varchar')  ) {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)" . $sorting;
+			} else {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`" . $sorting;
+			}
+		}
+		
+		# now we construct the index back together in case there was changes along the way
+		$new_line = substr($line, 0, $pos_index) . "INDEX `$index_name` ON `$table_name` (";
+		$new_line .= join(",", @columns) . ")";
+		
+		# all looks good so far ... create the index
+		print "$new_line\n";
+		my $success = mbz_do_sql($new_line);
+		
+		# if the index fails we will run it again as non-unique
+		if(!$success) {
+			$new_line =~ s/UNIQUE//;
+			mbz_do_sql($new_line);
+		}
+	}
+	close(SQL);
 	
 	open(SQL, "replication/CreatePrimaryKeys.sql");
 	chomp(my @lines = <SQL>);

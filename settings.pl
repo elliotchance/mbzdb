@@ -33,6 +33,7 @@ $g_func_url     = "$schema_base/admin/sql/CreateFunctions.sql";
 $g_pending_url  = "$schema_base/admin/sql/ReplicationSetup.sql";
 $g_stats_url    = "$schema_base/admin/sql/statistics/CreateTables.sql";
 $g_coverart_url = "$schema_base/admin/sql/caa/CreateTables.sql";
+$g_slaveidx_url = "$schema_base/admin/sql/CreateSlaveIndexes.sql";
 
 # Replications URL
 $g_rep_host = "ftp.musicbrainz.org";
