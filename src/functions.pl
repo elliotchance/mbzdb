@@ -168,6 +168,14 @@ sub mbz_download_schema {
 	mbz_download_file($g_coverart_url, "replication/CoverArtSetup.sql");
         unlink("replication/CreateSlaveIndexes.sql");
         mbz_download_file($g_slaveidx_url, "replication/CreateSlaveIndexes.sql");
+        unlink("replication/caa-CreatePrimaryKeys.sql");
+        mbz_download_file($g_caapk_url, "replication/caa-CreatePrimaryKeys.sql");
+        unlink("replication/caa-CreateIndexes.sql");
+        mbz_download_file($g_caaidx_url, "replication/caa-CreateIndexes.sql");
+        unlink("replication/stats-CreatePrimaryKeys.sql");
+        mbz_download_file($g_statpk_url, "replication/stats-CreatePrimaryKeys.sql");
+        unlink("replication/stats-CreateIndexes.sql");
+        mbz_download_file($g_statidx_url, "replication/stats-CreateIndexes.sql");
 
 	return 1;
 }

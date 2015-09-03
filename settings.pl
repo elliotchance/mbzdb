@@ -24,7 +24,8 @@ $g_db_rdbms = 'mysql';
 
 # Schema. This is where the SQL scripts to create the schema come from, only edit this if you know
 # what you're doing.
-$schema_base    = 'https://raw.github.com/metabrainz/musicbrainz-server/master';
+#$schema_base    = 'https://raw.github.com/metabrainz/musicbrainz-server/master';
+$schema_base    = 'https://raw.githubusercontent.com/metabrainz/musicbrainz-server/master';
 $g_schema_url   = "$schema_base/admin/sql/CreateTables.sql";
 $g_indexfk_url  = "$schema_base/admin/sql/CreateFKConstraints.sql";
 $g_index_url    = "$schema_base/admin/sql/CreateIndexes.sql";
@@ -34,6 +35,10 @@ $g_pending_url  = "$schema_base/admin/sql/ReplicationSetup.sql";
 $g_stats_url    = "$schema_base/admin/sql/statistics/CreateTables.sql";
 $g_coverart_url = "$schema_base/admin/sql/caa/CreateTables.sql";
 $g_slaveidx_url = "$schema_base/admin/sql/CreateSlaveIndexes.sql";
+$g_caapk_url    = "$schema_base/admin/sql/caa/CreatePrimaryKeys.sql";
+$g_caaidx_url   = "$schema_base/admin/sql/caa/CreateIndexes.sql";
+$g_statpk_url   = "$schema_base/admin/sql/statistics/CreatePrimaryKeys.sql";
+$g_statidx_url  = "$schema_base/admin/sql/statistics/CreateIndexes.sql";
 
 # Replications URL
 $g_rep_host = "ftp.musicbrainz.org";
