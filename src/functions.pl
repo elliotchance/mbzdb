@@ -785,7 +785,21 @@ sub mbz_unzip_mbdump {
 		system("bin\\bunzip2 -f replication/$file");
 		system("bin\\tar -xf replication/" . substr($file, 0, length($file) - 4) . " -C replication");
 	} else {
-		system("tar -xjf replication/$file -C replication");
+                my $taropts = "-xjf";
+                if($g_compress_prog ne "" && $g_pipe_bzip eq 0) {
+                    $taropts = "-x --use-compress-prog='$g_compress_prog' -f";
+                }
+
+                my $command = "tar ${taropts} replication/$file -C replication\n";
+                if($g_compress_prog ne "" && $g_pipe_bzip eq 1) {
+                    $taropts = "-x";
+                    $command = "$g_compress_prog -dc replication/$file | ".
+                               "tar ${taropts} -C replication\n";
+                }
+
+                
+                print $command;
+		system($command);
 		system("$g_mv replication/mbdump/* mbdump");
 	}
 	print "Done\n";
@@ -796,6 +810,12 @@ sub mbz_unzip_mbdump {
 # Unzip all downloaded mbdumps.
 # @return Always 1.
 sub mbz_unzip_mbdumps {
+
+        if($g_parallel)
+        {
+            return mbz_unzip_mbdumps_parallel();
+        }
+        
 	opendir(MBDUMP, "replication");
 	my @files = sort(readdir(MBDUMP));
 	
@@ -805,6 +825,40 @@ sub mbz_unzip_mbdumps {
 			mbz_unzip_mbdump($file);
 		}
 	}
+	
+	closedir(MBDUMP);
+	return 1;
+}
+
+sub mbz_unzip_mbdumps_parallel {
+	opendir(MBDUMP, "replication");
+	my @files = sort(readdir(MBDUMP));
+
+        my @childs = ();
+	
+	foreach my $file (@files) {
+		if(substr($file, 0, 6) eq 'mbdump' && substr($file, length($file) - 8, 8) eq '.tar.bz2' &&
+		   substr($file, 0, 1) ne '.') {
+                        my $pid = fork();
+                        if($pid)
+                        {
+                            push(@childs, $pid);
+                        }
+                        else
+                        {
+                            mbz_unzip_mbdump($file);
+                            exit(0);
+                        }
+		}
+	}
+
+        my $res;
+        while( scalar(@childs) > 0)
+        {
+            my $pid = pop @childs;
+            print "Waiting for process ".$pid."\n";
+            $res = waitpid($pid, WNOHANG);
+        }
 	
 	closedir(MBDUMP);
 	return 1;
@@ -823,7 +877,8 @@ sub mbz_unzip_replication {
 		system("bin\\bunzip2 -f replication/replication-$id.tar.bz2");
 		system("bin\\tar -xf replication/replication-$id.tar -C replication/$id");
 	} else {
-		system("tar -xjf replication/replication-$id.tar.bz2 -C replication/$id");
+		system("tar -xjf ${g_additional_tar_switches} ".
+                       " replication/replication-$id.tar.bz2 -C replication/$id");
 	}
 	print "Done\n";
 	return 1;
