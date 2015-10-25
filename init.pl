@@ -29,7 +29,7 @@ grabaction:
 
 print $L{'init_action'};
 chomp($action = <STDIN>);
-if($action !~ /^-?\d/ or $action < 0 or $action > 7) {
+if($action !~ /^-?\d/ or $action < 0 or $action > 11) {
 	print "Invalid\n\n";
 	goto grabaction;
 }
@@ -52,6 +52,8 @@ if($action == 1) {
 	print $L{'init_actionfk'};
 } elsif($action == 7) {
 	print $L{'init_actionplugininit'};
+} else {
+        print "Continue? [y/n]"
 }
 
 my $input = null;
