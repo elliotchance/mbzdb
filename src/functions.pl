@@ -786,7 +786,8 @@ sub mbz_unzip_mbdump {
 		system("bin\\tar -xf replication/" . substr($file, 0, length($file) - 4) . " -C replication");
 	} else {
                 my $taropts = "-xjf";
-                if($g_compress_prog ne "" && $g_pipe_bzip eq 0) {
+                if($g_compress_prog ne "" && $g_compress_prog != null &&
+                   $g_pipe_bzip eq 0) {
                     $taropts = "-x --use-compress-prog='$g_compress_prog' -f";
                 }
 
