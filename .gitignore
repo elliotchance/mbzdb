@@ -3,6 +3,7 @@
 cloc.pl
 sloc.sh
 mbdump*
+replication
 replication/*
 ._*
 .DS_Store
