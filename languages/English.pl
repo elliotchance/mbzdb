@@ -40,17 +40,20 @@ $L{'init_action'} =
 "Options provide more information after selection, before they start\n".
 "[1] Full Install (does everything for you, requires big download)\n".
 "[2] Install/Update database schematic\n".
-"[3] Load raw tables (requires big download ~1GB)\n".
+"[3] Load raw tables (requires big download ~2GB)\n".
 "[4] Load raw tables (don't download, load from 'mbdump/')\n".
 "[5] Apply table indexing\n".
 "[6] Apply table foreign keys\n".
 "[7] Initialise plugins\n\n".
+"Advanced options\n".
+"[10] Download (but don't unzip) last full replication\n".
+"[11] Unzip .bz2 files from replication into mbdump\n".
 "Option: ";
 
 # action descriptions
 $L{'init_actionfull'} =
 "A full install will install the database schematic, download the raw\n".
-"database dumps (~1GB), load them in, apply all the table indexing and\n".
+"database dumps (~2GB), load them in, apply all the table indexing and\n".
 "then initialise the plugins.\n\n".
 "Please configure settings.pl with the plugins you wish to use.\n\n".
 "Ready to proceed? (it may take over 24 hours for this script to fully\n".

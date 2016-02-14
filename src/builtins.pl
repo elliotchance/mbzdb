@@ -2,8 +2,8 @@
 use DBI;
 
 # Version. When changing this also look in languages/ for $L{'init_welcome'}
-$g_version = "5.0";
-$g_build_date = "2011-05-28";
+$g_version = "7.0";
+$g_build_date = "2015-10-17";
 
 # System commands
 $g_mv = (($^O eq "MSWin32") ? "move" : "mv");

@@ -149,7 +149,6 @@ sub mbz_download_replication {
 # indexes and PL/pgSQL. It will later be converted for the RDBMS we are using.
 # @return Always 1.
 sub mbz_download_schema {
-	# TODO: We must download other SQL files (e.g. Functions and Indexes) for CoverArt and Statistics
 	# This variable organization $g_xxx_url might not work anymore. It should be best to split this into a subfunction.
 	unlink("replication/CreateTables.sql");
 	mbz_download_file($g_schema_url, "replication/CreateTables.sql");
@@ -167,6 +166,17 @@ sub mbz_download_schema {
 	mbz_download_file($g_stats_url, "replication/StatisticsSetup.sql");
 	unlink("replication/CoverArtSetup.sql");
 	mbz_download_file($g_coverart_url, "replication/CoverArtSetup.sql");
+        unlink("replication/CreateSlaveIndexes.sql");
+        mbz_download_file($g_slaveidx_url, "replication/CreateSlaveIndexes.sql");
+        unlink("replication/caa-CreatePrimaryKeys.sql");
+        mbz_download_file($g_caapk_url, "replication/caa-CreatePrimaryKeys.sql");
+        unlink("replication/caa-CreateIndexes.sql");
+        mbz_download_file($g_caaidx_url, "replication/caa-CreateIndexes.sql");
+        unlink("replication/stats-CreatePrimaryKeys.sql");
+        mbz_download_file($g_statpk_url, "replication/stats-CreatePrimaryKeys.sql");
+        unlink("replication/stats-CreateIndexes.sql");
+        mbz_download_file($g_statidx_url, "replication/stats-CreateIndexes.sql");
+
 	return 1;
 }
 
@@ -410,6 +420,7 @@ sub mbz_raw_download {
 			or die "Can't change directory (ftp.musicbrainz.org): " . $ftp->message;
 			
 	@files = (
+                'mbdump-cover-art-archive.tar.bz2',
 		'mbdump-stats.tar.bz2',
 		'mbdump-derived.tar.bz2',
 		'mbdump.tar.bz2'
@@ -774,7 +785,22 @@ sub mbz_unzip_mbdump {
 		system("bin\\bunzip2 -f replication/$file");
 		system("bin\\tar -xf replication/" . substr($file, 0, length($file) - 4) . " -C replication");
 	} else {
-		system("tar -xjf replication/$file -C replication");
+                my $taropts = "-xjf";
+                if($g_compress_prog ne "" && $g_compress_prog != null &&
+                   $g_pipe_bzip eq 0) {
+                    $taropts = "-x --use-compress-prog='$g_compress_prog' -f";
+                }
+
+                my $command = "tar ${taropts} replication/$file -C replication\n";
+                if($g_compress_prog ne "" && $g_pipe_bzip eq 1) {
+                    $taropts = "-x";
+                    $command = "$g_compress_prog -dc replication/$file | ".
+                               "tar ${taropts} -C replication\n";
+                }
+
+                
+                print $command;
+		system($command);
 		system("$g_mv replication/mbdump/* mbdump");
 	}
 	print "Done\n";
@@ -785,6 +811,12 @@ sub mbz_unzip_mbdump {
 # Unzip all downloaded mbdumps.
 # @return Always 1.
 sub mbz_unzip_mbdumps {
+
+        if($g_parallel)
+        {
+            return mbz_unzip_mbdumps_parallel();
+        }
+        
 	opendir(MBDUMP, "replication");
 	my @files = sort(readdir(MBDUMP));
 	
@@ -794,6 +826,40 @@ sub mbz_unzip_mbdumps {
 			mbz_unzip_mbdump($file);
 		}
 	}
+	
+	closedir(MBDUMP);
+	return 1;
+}
+
+sub mbz_unzip_mbdumps_parallel {
+	opendir(MBDUMP, "replication");
+	my @files = sort(readdir(MBDUMP));
+
+        my @childs = ();
+	
+	foreach my $file (@files) {
+		if(substr($file, 0, 6) eq 'mbdump' && substr($file, length($file) - 8, 8) eq '.tar.bz2' &&
+		   substr($file, 0, 1) ne '.') {
+                        my $pid = fork();
+                        if($pid)
+                        {
+                            push(@childs, $pid);
+                        }
+                        else
+                        {
+                            mbz_unzip_mbdump($file);
+                            exit(0);
+                        }
+		}
+	}
+
+        my $res;
+        while( scalar(@childs) > 0)
+        {
+            my $pid = pop @childs;
+            print "Waiting for process ".$pid."\n";
+            $res = waitpid($pid, WNOHANG);
+        }
 	
 	closedir(MBDUMP);
 	return 1;
@@ -812,7 +878,8 @@ sub mbz_unzip_replication {
 		system("bin\\bunzip2 -f replication/replication-$id.tar.bz2");
 		system("bin\\tar -xf replication/replication-$id.tar -C replication/$id");
 	} else {
-		system("tar -xjf replication/replication-$id.tar.bz2 -C replication/$id");
+		system("tar -xjf ${g_additional_tar_switches} ".
+                       " replication/replication-$id.tar.bz2 -C replication/$id");
 	}
 	print "Done\n";
 	return 1;

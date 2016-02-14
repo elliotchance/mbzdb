@@ -1,4 +1,4 @@
-FORK OF MBZDB : Fix problem when creating Table/Indexes/Pk
+FORK OF MBZDB
 
 1- Edit settings.pl to match your environment.
 2- Edit settings_mysql.pl or settings_postgresql.pl to match your database environment.
@@ -13,6 +13,22 @@ perl -MCPAN -e install DBD::mysql
 ===== Version log =====
 5.0
   * Full support for NGS for both PostgreSQL and MySQL.
-  * settings.pl is now split so that each backend gets its own
-    relevant settings file.
+  * settings.pl is now split so that each backend gets its own relevant settings
+    file.
   * A few minor bug fixes.
+
+7.0
+  * Allow parts of the init script to run in batch mode and/or in parallel:
+  ** Create tables:     ./init.pl --action=2 --ask=0
+  ** Download mbdump:   ./init.pl --action=10 --ask=0
+  ** Uncompress mbdump: ./init.pl --action=11 --ask=0 --bzip="/usr/bin/pbzip2 -m10240 -p16 -r -v" --pipe-bzip=1  --parallel=1
+  *** Note at the moment pbzip2 can't make use of all cores when decompressing
+      because of the format of the mbdump files created by MuscBrainz.
+  ** Load data:         ./init.pl --action=4 --ask=0
+  * After that, you can continue the database creation using the 5, 6 & 7
+    init.pl options from the interactive menu (indexing, foreign keys creation,
+    plugins initialization).
+
+===== Further improvements =====
+Some ideas may be worth looking at:
+  * Create primary keys before LOAD  DATA: https://dev.mysql.com/doc/refman/5.6/en/optimizing-innodb-ddl-operations.html

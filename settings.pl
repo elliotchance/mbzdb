@@ -24,15 +24,21 @@ $g_db_rdbms = 'mysql';
 
 # Schema. This is where the SQL scripts to create the schema come from, only edit this if you know
 # what you're doing.
-$schema_base = 'http://git.musicbrainz.org/gitweb/?p=musicbrainz-server.git;a=blob_plain';
-$g_schema_url = "$schema_base;f=admin/sql/CreateTables.sql;hb=master";
-$g_indexfk_url = "$schema_base;f=admin/sql/CreateFKConstraints.sql;hb=master";
-$g_index_url = "$schema_base;f=admin/sql/CreateIndexes.sql;hb=master";
-$g_pk_url = "$schema_base;f=admin/sql/CreatePrimaryKeys.sql;hb=master";
-$g_func_url = "$schema_base;f=admin/sql/CreateFunctions.sql;hb=master";
-$g_pending_url = "$schema_base;f=admin/sql/ReplicationSetup.sql;hb=master";
-$g_stats_url = "$schema_base;f=admin/sql/statistics/CreateTables.sql;hb=master";
-$g_coverart_url = "$schema_base;f=admin/sql/caa/CreateTables.sql;hb=master";
+#$schema_base    = 'https://raw.github.com/metabrainz/musicbrainz-server/master';
+$schema_base    = 'https://raw.githubusercontent.com/metabrainz/musicbrainz-server/master';
+$g_schema_url   = "$schema_base/admin/sql/CreateTables.sql";
+$g_indexfk_url  = "$schema_base/admin/sql/CreateFKConstraints.sql";
+$g_index_url    = "$schema_base/admin/sql/CreateIndexes.sql";
+$g_pk_url       = "$schema_base/admin/sql/CreatePrimaryKeys.sql";
+$g_func_url     = "$schema_base/admin/sql/CreateFunctions.sql";
+$g_pending_url  = "$schema_base/admin/sql/ReplicationSetup.sql";
+$g_stats_url    = "$schema_base/admin/sql/statistics/CreateTables.sql";
+$g_coverart_url = "$schema_base/admin/sql/caa/CreateTables.sql";
+$g_slaveidx_url = "$schema_base/admin/sql/CreateSlaveIndexes.sql";
+$g_caapk_url    = "$schema_base/admin/sql/caa/CreatePrimaryKeys.sql";
+$g_caaidx_url   = "$schema_base/admin/sql/caa/CreateIndexes.sql";
+$g_statpk_url   = "$schema_base/admin/sql/statistics/CreatePrimaryKeys.sql";
+$g_statidx_url  = "$schema_base/admin/sql/statistics/CreateIndexes.sql";
 
 # Replications URL
 $g_rep_host = "ftp.musicbrainz.org";

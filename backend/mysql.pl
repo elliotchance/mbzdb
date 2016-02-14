@@ -120,6 +120,11 @@ sub backend_mysql_load_data {
 			$table = substr($table, 11, length($table) - 11);
 		}
 
+                if(substr($table, 0, 18) eq "cover_art_archive.")
+		{
+			$table = substr($table, 18, length($table) - 18);
+		}
+
 		if(backend_mysql_table_column_exists($table,"dummycolumn"))
 		{
        			mbz_do_sql("ALTER TABLE `$table` DROP COLUMN dummycolumn");
@@ -265,10 +270,78 @@ sub backend_mysql_update_index {
 		# TEXT then MySQL requires and index length.
 		my @columns = split(",", $cols);
 		for(my $i = 0; $i < @columns; ++$i) {
+			$sorting = '';
+			if(substr($columns[$i], -4) eq 'DESC') {
+				$sorting = ' DESC';
+				$columns[$i] = substr($columns[$i], 0, -5);
+			}
 			if((backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') || (backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'varchar')  ) {
-				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)";
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)" . $sorting;
 			} else {
-				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`" . $sorting;
+			}
+		}
+		
+		# now we construct the index back together in case there was changes along the way
+		$new_line = substr($line, 0, $pos_index) . "INDEX `$index_name` ON `$table_name` (";
+		$new_line .= join(",", @columns) . ")";
+		
+		# all looks good so far ... create the index
+		print "$new_line\n";
+		my $success = mbz_do_sql($new_line);
+		
+		# if the index fails we will run it again as non-unique
+		if(!$success) {
+			$new_line =~ s/UNIQUE//;
+			mbz_do_sql($new_line);
+		}
+	}
+	close(SQL);
+
+        # this is a copypaste of the above code changing the .sql file
+        open(SQL, "replication/CreateSlaveIndexes.sql");
+        chomp(my @lines = <SQL>);
+	
+	my $index_size = 200;
+	foreach my $line (@lines) {
+		$line = mbz_trim($line);
+		my $pos_index = index($line, 'INDEX ');
+		my $pos_on = index($line, 'ON ');
+		
+		# skip blank lines, comments, psql settings and lines that arn't any use to us.
+		next if($line eq '' || substr($line, 0, 2) eq '--' || substr($line, 0, 1) eq "\\" ||
+		        $pos_index < 0);
+		        
+		# skip function-based indexes.
+		next if($line =~ /.*\(.*\(.*\)\)/);
+		
+		# get the names
+		my $index_name = mbz_trim(substr($line, $pos_index + 6, index($line, ' ', $pos_index + 7) -
+		                       $pos_index - 6));
+		my $table_name = mbz_trim(substr($line, $pos_on + 3, index($line, ' ', $pos_on + 4) -
+		                       $pos_on - 3));
+		my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
+		
+		# PostgreSQL will put double-quotes around some entity names, we have to remove these
+		$index_name = mbz_remove_quotes($index_name);
+		$table_name = mbz_remove_quotes($table_name);
+		
+		# see if the index aleady exists, if so skip
+		next if(mbz_index_exists($index_name));
+		
+		# split and clean column names. this is also a good time to find out there type, if its
+		# TEXT then MySQL requires and index length.
+		my @columns = split(",", $cols);
+		for(my $i = 0; $i < @columns; ++$i) {
+			$sorting = '';
+			if(substr($columns[$i], -4) eq 'DESC') {
+				$sorting = ' DESC';
+				$columns[$i] = substr($columns[$i], 0, -5);
+			}
+			if((backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') || (backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'varchar')  ) {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)" . $sorting;
+			} else {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`" . $sorting;
 			}
 		}
 		
@@ -326,6 +399,220 @@ sub backend_mysql_update_index {
 
 		print "$new_line\n";
 		mbz_do_sql($new_line, 'nodie');
+	}
+	close(SQL);
+
+        open(SQL, "replication/caa-CreatePrimaryKeys.sql");
+	chomp(my @lines = <SQL>);
+	foreach my $line (@lines) {
+		$line = mbz_trim($line);
+
+		# skip blank lines and single bracket lines
+		next if($line eq "" || substr($line, 0, 2) eq "--" ||
+                        substr($line, 0, 15) eq "SET search_path" ||
+                        substr($line, 0, 1) eq "\\" ||
+		        substr($line, 0, 5) eq "BEGIN");
+
+		my $pos_table = index($line, 'TABLE ');
+		my $pos_add = index($line, 'ADD ');
+		my $pos_index = index($line, 'CONSTRAINT ');
+
+		my $table_name = mbz_trim(substr($line, $pos_table + length('TABLE '), $pos_add - $pos_table - length('TABLE ')));
+		my $index_name = mbz_trim(substr($line, $pos_index + 11, index($line, ' ', $pos_index + 12) -
+				                  $pos_index - 11));
+		my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
+
+		# no need to create the index if it already exists
+		next if(backend_mysql_primary_key_exists($table_name));
+
+		# split and clean column names. this is also a good time to find out there type, if its
+		# TEXT then MySQL requires and index length.
+		my @columns = split(",", $cols);
+		for(my $i = 0; $i < @columns; ++$i) {
+			if((backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text')  || (backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'varchar') ) {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)";
+			} else {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
+			}
+		}
+
+		# now we construct the index back together in case there was changes along the way
+		$new_line = "ALTER TABLE `$table_name` ADD CONSTRAINT `$index_name` PRIMARY KEY  (";
+		$new_line .= join(",", @columns) . ")";
+
+		print "$new_line\n";
+		mbz_do_sql($new_line, 'nodie');
+	}
+	close(SQL);
+
+        open(SQL, "replication/caa-CreateIndexes.sql");
+        chomp(my @lines = <SQL>);
+	
+	my $index_size = 200;
+	foreach my $line (@lines) {
+		$line = mbz_trim($line);
+		my $pos_index = index($line, 'INDEX ');
+		my $pos_on = index($line, 'ON ');
+		
+		# skip blank lines, comments, psql settings and lines that arn't any use to us.
+		next if($line eq '' || substr($line, 0, 2) eq '--' ||
+                        substr($line, 0, 15) eq "SET search_path" ||
+                        substr($line, 0, 1) eq "\\" ||
+		        $pos_index < 0);
+		        
+		# skip function-based indexes.
+		next if($line =~ /.*\(.*\(.*\)\)/);
+		
+		# get the names
+		my $index_name = mbz_trim(substr($line, $pos_index + 6, index($line, ' ', $pos_index + 7) -
+		                       $pos_index - 6));
+		my $table_name = mbz_trim(substr($line, $pos_on + 3, index($line, ' ', $pos_on + 4) -
+		                       $pos_on - 3));
+		my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
+		
+		# PostgreSQL will put double-quotes around some entity names, we have to remove these
+		$index_name = mbz_remove_quotes($index_name);
+		$table_name = mbz_remove_quotes($table_name);
+		
+		# see if the index aleady exists, if so skip
+		next if(mbz_index_exists($index_name));
+		
+		# split and clean column names. this is also a good time to find out there type, if its
+		# TEXT then MySQL requires and index length.
+		my @columns = split(",", $cols);
+		for(my $i = 0; $i < @columns; ++$i) {
+			$sorting = '';
+			if(substr($columns[$i], -4) eq 'DESC') {
+				$sorting = ' DESC';
+				$columns[$i] = substr($columns[$i], 0, -5);
+			}
+			if((backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') || (backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'varchar')  ) {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)" . $sorting;
+			} else {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`" . $sorting;
+			}
+		}
+		
+		# now we construct the index back together in case there was changes along the way
+		$new_line = substr($line, 0, $pos_index) . "INDEX `$index_name` ON `$table_name` (";
+		$new_line .= join(",", @columns) . ")";
+		
+		# all looks good so far ... create the index
+		print "$new_line\n";
+		my $success = mbz_do_sql($new_line);
+		
+		# if the index fails we will run it again as non-unique
+		if(!$success) {
+			$new_line =~ s/UNIQUE//;
+			mbz_do_sql($new_line);
+		}
+	}
+	close(SQL);
+
+        open(SQL, "replication/stats-CreatePrimaryKeys.sql");
+	chomp(my @lines = <SQL>);
+	foreach my $line (@lines) {
+		$line = mbz_trim($line);
+
+		# skip blank lines and single bracket lines
+		next if($line eq "" || substr($line, 0, 2) eq "--" ||
+                        substr($line, 0, 1) eq "\\" ||
+                        substr($line, 0, 15) eq "SET search_path" ||
+		        substr($line, 0, 5) eq "BEGIN");
+
+		my $pos_table = index($line, 'TABLE ');
+		my $pos_add = index($line, 'ADD ');
+		my $pos_index = index($line, 'CONSTRAINT ');
+
+		my $table_name = mbz_trim(substr($line, $pos_table + length('TABLE '), $pos_add - $pos_table - length('TABLE ')));
+		my $index_name = mbz_trim(substr($line, $pos_index + 11, index($line, ' ', $pos_index + 12) -
+				                  $pos_index - 11));
+		my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
+
+		# no need to create the index if it already exists
+		next if(backend_mysql_primary_key_exists($table_name));
+
+		# split and clean column names. this is also a good time to find out there type, if its
+		# TEXT then MySQL requires and index length.
+		my @columns = split(",", $cols);
+		for(my $i = 0; $i < @columns; ++$i) {
+			if((backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text')  || (backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'varchar') ) {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)";
+			} else {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`";
+			}
+		}
+
+		# now we construct the index back together in case there was changes along the way
+		$new_line = "ALTER TABLE `$table_name` ADD CONSTRAINT `$index_name` PRIMARY KEY  (";
+		$new_line .= join(",", @columns) . ")";
+
+		print "$new_line\n";
+		mbz_do_sql($new_line, 'nodie');
+	}
+	close(SQL);
+
+        open(SQL, "replication/stats-CreateIndexes.sql");
+        chomp(my @lines = <SQL>);
+	
+	my $index_size = 200;
+	foreach my $line (@lines) {
+		$line = mbz_trim($line);
+		my $pos_index = index($line, 'INDEX ');
+		my $pos_on = index($line, 'ON ');
+		
+		# skip blank lines, comments, psql settings and lines that arn't any use to us.
+		next if($line eq '' || substr($line, 0, 2) eq '--' ||
+                        substr($line, 0, 15) eq "SET search_path" ||
+                        substr($line, 0, 1) eq "\\" ||
+		        $pos_index < 0);
+		        
+		# skip function-based indexes.
+		next if($line =~ /.*\(.*\(.*\)\)/);
+		
+		# get the names
+		my $index_name = mbz_trim(substr($line, $pos_index + 6, index($line, ' ', $pos_index + 7) -
+		                       $pos_index - 6));
+		my $table_name = mbz_trim(substr($line, $pos_on + 3, index($line, ' ', $pos_on + 4) -
+		                       $pos_on - 3));
+		my $cols = substr($line, index($line, '(') + 1, index($line, ')') - index($line, '(') - 1);
+		
+		# PostgreSQL will put double-quotes around some entity names, we have to remove these
+		$index_name = mbz_remove_quotes($index_name);
+		$table_name = mbz_remove_quotes($table_name);
+		
+		# see if the index aleady exists, if so skip
+		next if(mbz_index_exists($index_name));
+		
+		# split and clean column names. this is also a good time to find out there type, if its
+		# TEXT then MySQL requires and index length.
+		my @columns = split(",", $cols);
+		for(my $i = 0; $i < @columns; ++$i) {
+			$sorting = '';
+			if(substr($columns[$i], -4) eq 'DESC') {
+				$sorting = ' DESC';
+				$columns[$i] = substr($columns[$i], 0, -5);
+			}
+			if((backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'text') || (backend_mysql_get_column_type($table_name, mbz_trim($columns[$i])) eq 'varchar')  ) {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`($index_size)" . $sorting;
+			} else {
+				$columns[$i] = "`" . mbz_trim(mbz_remove_quotes($columns[$i])) . "`" . $sorting;
+			}
+		}
+		
+		# now we construct the index back together in case there was changes along the way
+		$new_line = substr($line, 0, $pos_index) . "INDEX `$index_name` ON `$table_name` (";
+		$new_line .= join(",", @columns) . ")";
+		
+		# all looks good so far ... create the index
+		print "$new_line\n";
+		my $success = mbz_do_sql($new_line);
+		
+		# if the index fails we will run it again as non-unique
+		if(!$success) {
+			$new_line =~ s/UNIQUE//;
+			mbz_do_sql($new_line);
+		}
 	}
 	close(SQL);
 
@@ -401,7 +688,7 @@ sub backend_mysql_update_schema_from_file {
 	my $ignore = 0;
 	foreach my $line (@lines) {
 		#print "$line\n";
-
+resume_stmt_end_on_check:
 		# skip blank lines and single bracket lines
 		next if($line eq "" || $line eq "(" || substr($line, 0, 1) eq "\\" || substr(mbz_trim($line), 0, 2) eq '--');
 		
@@ -417,6 +704,16 @@ sub backend_mysql_update_schema_from_file {
 
 		if(substr($line, 0, 6) eq "CREATE" && index($line, "INDEX") < 0 &&
 			index($line, "AGGREGATE") < 0 && index($line, "TYPE") < 0) {
+				
+                        if( index($line,"--") > 0 ) {
+                               $line = substr($line, 0, index($line, "--"));
+                               # remove whitespaces
+                               $line =~ s/^\s+//;
+                               $line =~ s/\s+$//;
+
+                        }
+
+				
 			$table = mbz_remove_quotes(substr($line, 13, length($line)));
 			if(substr($table, length($table) - 1, 1) eq '(') {
 				$table = substr($table, 0, length($table) - 1);
@@ -441,6 +738,12 @@ sub backend_mysql_update_schema_from_file {
 		} elsif(substr(mbz_trim($line),0,5) eq "CHECK" || substr(mbz_trim($line),0,5) eq 'ALTER') {
 			#Ignore the line rest of lines
 			$ignore = 1;
+			if( index($line,");") > 0 )
+			{
+				# end of CREATE TABLE 
+				$line =");";
+				goto resume_stmt_end_on_check;
+			}
 		} elsif(substr($line, 0, 1) eq " " || substr($line, 0, 1) eq "\t") {
 			
 			my @parts = split(" ", $line);
@@ -454,6 +757,13 @@ sub backend_mysql_update_schema_from_file {
 					@parts = @parts[0 .. ($i - 1)];
 					last;
 				}
+				if((substr($parts[$i], 0, 4) eq "WITH") || (substr($parts[$i], 0, 7) eq "WITHOUT")) {
+                                        if(substr($parts[$i+1], 0, 4) eq "TIME") {
+                                                if(substr($parts[$i+2], 0, 4) eq "ZONE") {
+                                                        $parts[$i] = $parts[$i+1] = $parts[$i+2] = "";
+                                                }
+                                        }
+                                }
 				
 				if(substr($parts[$i], length($parts[$i]) - 2, 2) eq "[]") {
 					$parts[$i] = "VARCHAR(255)";
@@ -463,14 +773,17 @@ sub backend_mysql_update_schema_from_file {
 				}
 				$parts[$i] = $enums{$parts[$i]} if($i != 0 && exists($enums{$parts[$i]}));
 				$parts[$i] = "VARCHAR(15)" if(uc(substr($parts[$i], 0, 13)) eq "CHARACTER(15)");
+				$parts[$i] = "VARCHAR(100)" if(uc(substr($parts[$i], 0, 5)) eq "POINT");
 				$parts[$i] = "INT NOT NULL" if(uc(substr($parts[$i], 0, 6)) eq "SERIAL");
 				$parts[$i] = "CHAR(36)" if(uc(substr($parts[$i], 0, 4)) eq "UUID");
 				$parts[$i] = "TEXT" if(uc(substr($parts[$i], 0, 4)) eq "CUBE");
 				$parts[$i] = "CHAR(1)" if(uc(substr($parts[$i], 0, 4)) eq "BOOL");
 				$parts[$i] = "VARCHAR(256)" if(uc($parts[$i]) eq "INTERVAL");
+				$parts[$i] = "TIMESTAMP" if(uc($parts[$i]) eq "TIMESTAMPTZ");
 				$parts[$i] = "0" if(uc(substr($parts[$i], 0, 3)) eq "NOW");
 				$parts[$i] = "0" if(uc(substr($parts[$i], 1, 1)) eq "{");
 				$parts[$i] = $parts[$i + 1] = $parts[$i + 2] = "" if(uc($parts[$i]) eq "WITH");
+				$parts[$i] = $parts[$i + 1] = $parts[$i + 2] = "" if(uc($parts[$i]) eq "WITHOUT");
 				if(uc($parts[$i]) eq "VARCHAR" && substr($parts[$i + 1], 0, 1) ne "(") {
 					$parts[$i] = "TEXT";
 				}
@@ -487,6 +800,23 @@ sub backend_mysql_update_schema_from_file {
 			} else {
 				$new_col = $parts[0];
 			}
+
+			if( $parts[1] eq "IS" || $parts[1] eq "=" ||
+				$parts[1] eq "OR"  )  {
+				$stmt = "";
+				next;
+			}
+			
+			$tmp = $new_col;
+			$tmp =~ s/^\s+|\s+$//g;
+			
+			if( $tmp eq "`(`" || $tmp eq "`)`" ) {
+				$stmt = "";
+				next;
+			}
+			
+			print "\tADD COLUMN $new_col\n";
+			
 			$stmt = "ALTER TABLE `$table` ADD $new_col " .
 				join(" ", @parts[1 .. @parts - 1]);
 			
