@@ -16,7 +16,7 @@ mbz_first_boot() if($g_firstboot);
 # version info
 print "mbzdb v$g_version ($g_build_date)\n\n";
 
-my $action = null;
+my $action = undef;
 
 if($g_action > 0)
 {
@@ -56,7 +56,7 @@ if($action == 1) {
         print "Continue? [y/n]"
 }
 
-my $input = null;
+my $input = undef;
 
 if( $g_ask )
 {
